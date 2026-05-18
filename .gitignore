@@ -13,8 +13,6 @@ cmake-build-*/
 
 *.o
 *.obj
-*.exe
-*.dll
 *.pdb
 *.lib
 *.exp

@@ -467,59 +467,8 @@ if (Test-Path $chmEngSrc) {
     info "docs\chm_eng\co2h-eng.chm not found, skipping"
 }
 
-# ---- scelot (PE/.NET -> shellcode generator) from kit\utils\scelot ---------
-$scelotDir = Join-Path $PSScriptRoot "kit\utils\scelot"
-$scelotCML = Join-Path $scelotDir "CMakeLists.txt"
-if (Test-Path $scelotCML) {
-    info "Building scelot (PE/.NET -> shellcode)..."
-    $scelotOk = $true
-
-    # 1) loader stub x64
-    info "  -> scelot: loader stub x64"
-    $ErrorActionPreference = "Continue"
-    & $cmake -S "$scelotDir\loader" -B "$scelotDir\build\stub_x64" `
-        -G "Visual Studio 17 2022" -A x64 -Wno-dev
-    if ($LASTEXITCODE -eq 0) {
-        & $cmake --build "$scelotDir\build\stub_x64" --config Release
-    }
-    if ($LASTEXITCODE -ne 0) { $scelotOk = $false }
-
-    # 2) loader stub x86
-    if ($scelotOk) {
-        info "  -> scelot: loader stub x86"
-        & $cmake -S "$scelotDir\loader" -B "$scelotDir\build\stub_x86" `
-            -G "Visual Studio 17 2022" -A Win32 -Wno-dev
-        if ($LASTEXITCODE -eq 0) {
-            & $cmake --build "$scelotDir\build\stub_x86" --config Release
-        }
-        if ($LASTEXITCODE -ne 0) { $scelotOk = $false }
-    }
-
-    # 3) generator (top-level)
-    if ($scelotOk) {
-        info "  -> scelot: generator"
-        & $cmake -S $scelotDir -B "$scelotDir\build\main" `
-            -G "Visual Studio 17 2022" -A x64 -Wno-dev
-        if ($LASTEXITCODE -eq 0) {
-            & $cmake --build "$scelotDir\build\main" --config Release
-        }
-        if ($LASTEXITCODE -ne 0) { $scelotOk = $false }
-    }
-    $ErrorActionPreference = "Stop"
-
-    if ($scelotOk) {
-        # scelot.exe outputs to project root
-        $scelotExeBuilt = Join-Path $scelotDir "scelot.exe"
-        if (Test-Path $scelotExeBuilt) {
-            Copy-Item $scelotExeBuilt "$toolsDir\scelot.exe" -Force
-            ok "kit\utils\scelot\scelot.exe -> bin\tools\scelot.exe"
-        }
-    } else {
-        Write-Host "[!] scelot build failed" -ForegroundColor Yellow
-    }
-} else {
-    info "kit\utils\scelot not found, skipping"
-}
+# scelot copy moved below the kit\ -> bin\kit\ step so it does not get
+# overwritten by the recursive kit copy.
 
 # ---- Kit Editor (.NET Framework 4.8, WPF) ---------------------------------
 $kitEditorProj = Join-Path $PSScriptRoot "kit\kit-editor\KitEditor.csproj"
@@ -667,6 +616,73 @@ if (Test-Path $kitSrc) {
     ok "kit\ -> bin\kit\"
 }
 
+# ---- scelot (PE/.NET -> shellcode generator) - prebuilt from tools\scelot --
+# Copy the pre-built scelot.exe into bin\kit\utils\ so the client finds
+# it at applicationDirPath()/kit/utils/scelot.exe.
+# Runs AFTER the kit\ -> bin\kit\ copy to avoid being clobbered.
+$scelotPrebuilt = Join-Path $PSScriptRoot "tools\scelot\scelot.exe"
+if (Test-Path $scelotPrebuilt) {
+    $scelotDstDir = Join-Path $binDir "kit\utils"
+    if (-not (Test-Path $scelotDstDir)) {
+        New-Item -ItemType Directory -Path $scelotDstDir -Force | Out-Null
+    }
+    Copy-Item $scelotPrebuilt (Join-Path $scelotDstDir "scelot.exe") -Force
+    ok "tools\scelot\scelot.exe -> bin\kit\utils\scelot.exe"
+} else {
+    info "tools\scelot\scelot.exe not found, skipping"
+}
+
+# ---- ICOPatcher - prebuilt from tools\ICOPatcher ---------------------------
+# Copy the pre-built ICOPatcher.exe into bin\kit\utils\.
+$icoPrebuilt = Join-Path $PSScriptRoot "tools\ICOPatcher\ICOPatcher.exe"
+if (Test-Path $icoPrebuilt) {
+    $icoDstDir = Join-Path $binDir "kit\utils"
+    if (-not (Test-Path $icoDstDir)) {
+        New-Item -ItemType Directory -Path $icoDstDir -Force | Out-Null
+    }
+    Copy-Item $icoPrebuilt (Join-Path $icoDstDir "ICOPatcher.exe") -Force
+    ok "tools\ICOPatcher\ICOPatcher.exe -> bin\kit\utils\ICOPatcher.exe"
+} else {
+    info "tools\ICOPatcher\ICOPatcher.exe not found, skipping"
+}
+
+# ---- hash_gen - prebuilt from tools\hash_gen -------------------------------
+# Copy the pre-built hash_gen.exe into bin\kit\utils\.
+$hashGenPrebuilt = Join-Path $PSScriptRoot "tools\hash_gen\hash_gen.exe"
+if (Test-Path $hashGenPrebuilt) {
+    $hashGenDstDir = Join-Path $binDir "kit\utils"
+    if (-not (Test-Path $hashGenDstDir)) {
+        New-Item -ItemType Directory -Path $hashGenDstDir -Force | Out-Null
+    }
+    Copy-Item $hashGenPrebuilt (Join-Path $hashGenDstDir "hash_gen.exe") -Force
+    ok "tools\hash_gen\hash_gen.exe -> bin\kit\utils\hash_gen.exe"
+} else {
+    info "tools\hash_gen\hash_gen.exe not found, skipping"
+}
+
+# ---- Kit Editor - prebuilt from tools\ --------------------------------------
+# Copy prebuilt KitEditor.exe and AvalonEdit dependency into bin\kit\.
+$kitDstRoot = Join-Path $binDir "kit"
+if (-not (Test-Path $kitDstRoot)) {
+    New-Item -ItemType Directory -Path $kitDstRoot -Force | Out-Null
+}
+
+$kitEditorPrebuilt = Join-Path $PSScriptRoot "tools\KitEditor.exe"
+if (Test-Path $kitEditorPrebuilt) {
+    Copy-Item $kitEditorPrebuilt (Join-Path $kitDstRoot "KitEditor.exe") -Force
+    ok "tools\KitEditor.exe -> bin\kit\KitEditor.exe"
+} else {
+    info "tools\KitEditor.exe not found, skipping"
+}
+
+$avalonEditPrebuilt = Join-Path $PSScriptRoot "tools\ICSharpCode.AvalonEdit.dll"
+if (Test-Path $avalonEditPrebuilt) {
+    Copy-Item $avalonEditPrebuilt (Join-Path $kitDstRoot "ICSharpCode.AvalonEdit.dll") -Force
+    ok "tools\ICSharpCode.AvalonEdit.dll -> bin\kit\ICSharpCode.AvalonEdit.dll"
+} else {
+    info "tools\ICSharpCode.AvalonEdit.dll not found, skipping"
+}
+
 # ---- summary ---------------------------------------------------------------
 Write-Host ""
 Write-Host "================================================" -ForegroundColor Yellow
@@ -689,7 +705,7 @@ Write-Host "  bin\shellcode\        (sc_*.bin shellcodes)"
 Write-Host "  bin\bof\co2h\         (Co2H BOFs)"
 Write-Host "  bin\bof\              (third-party BOF collection)"
 Write-Host "  bin\kit\              (Artifact Kit + KitEditor + scelot)"
-Write-Host "  bin\tools\scelot.exe  (PE/.NET to shellcode generator)"
+Write-Host "  bin\kit\utils\scelot.exe  (PE/.NET to shellcode generator)"
 Write-Host "  bin\co2h.chm          (offline documentation, RU)"
 Write-Host "  bin\co2h-eng.chm      (offline documentation, EN)"
 Write-Host "  bin\sdk\              (plugin SDK: headers + example)"

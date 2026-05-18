@@ -2168,12 +2168,12 @@ void MainWindow::onGenerateCerts() {
 
 void MainWindow::onGenerateShellcode() {
     const QString scelotExe =
-        QApplication::applicationDirPath() + "/tools/scelot.exe";
+        QApplication::applicationDirPath() + "/kit/utils/scelot.exe";
     if (!QFileInfo::exists(scelotExe)) {
         QMessageBox::warning(this, "Generate Shellcode",
             "scelot.exe not found at:\n" + QDir::toNativeSeparators(scelotExe) +
-            "\n\nRebuild the project — scelot is copied to bin\\tools\\ "
-            "during build.");
+            "\n\nRebuild the project — scelot is copied to "
+            "bin\\kit\\utils\\ during build.");
         return;
     }
 
