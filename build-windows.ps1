@@ -403,57 +403,9 @@ if (Test-Path $co2hBofZip) {
     ok "bof\Co2H-bof\Co2H-bof.zip -> bin\bof\Co2H-bof\"
 }
 
-# ---- BOF collection --------------------------------------------------------
-$bofSrc = Join-Path $PSScriptRoot "bof\other-bof"
-if (Test-Path $bofSrc) {
-    $bofDst = Join-Path $binDir "bof\other-bof"
-    if (-not (Test-Path $bofDst)) { New-Item -ItemType Directory $bofDst | Out-Null }
-    Copy-Item "$bofSrc\*" $bofDst -Recurse -Force
-    ok "bof\other-bof\ -> bin\bof\Co2H-bof\"
-} else {
-    info "bof\other-bof\ not found, skipping"
-}
-
-# CS-Situational-Awareness-BOF — готовый архив
-$csaBofZip = Join-Path $PSScriptRoot "bof\other-bof\CS-Situational-Awareness-BOF-master.zip"
-if (Test-Path $csaBofZip) {
-    $csaBofDst = Join-Path $binDir "bof\other-bof"
-    if (-not (Test-Path $csaBofDst)) { New-Item -ItemType Directory $csaBofDst -Force | Out-Null }
-    Copy-Item $csaBofZip "$csaBofDst\CS-Situational-Awareness-BOF-master.zip" -Force
-    ok "bof\other-bof\CS-Situational-Awareness-BOF-master.zip -> bin\bof\other-bof\"
-}
-
-# ---- ralf-bof collection ---------------------------------------------------
-$ralfSrc = Join-Path $PSScriptRoot "bof\ralf-bof\ralf-bof"
-if (Test-Path $ralfSrc) {
-    $ralfDst = Join-Path $binDir "bof\ralf-bof"
-    if (-not (Test-Path $ralfDst)) { New-Item -ItemType Directory $ralfDst | Out-Null }
-    Copy-Item "$ralfSrc\*" $ralfDst -Recurse -Force
-    ok "bof\ralf-bof\ralf-bof\ -> bin\bof\ralf-bof\"
-} else {
-    info "bof\ralf-bof\ralf-bof\ not found, skipping (run bof\ralf-bof\build_all.ps1 first)"
-}
-
-# Extension-Kit (ralf-bof) — готовый архив с расширениями
-$extKitZip = Join-Path $PSScriptRoot "bof\ralf-bof\Extension-Kit-main.zip"
-if (Test-Path $extKitZip) {
-    $ralfDst2 = Join-Path $binDir "bof\ralf-bof"
-    if (-not (Test-Path $ralfDst2)) { New-Item -ItemType Directory $ralfDst2 -Force | Out-Null }
-    Copy-Item $extKitZip "$ralfDst2\Extension-Kit-main.zip" -Force
-    ok "bof\ralf-bof\Extension-Kit-main.zip -> bin\bof\ralf-bof\"
-}
-
-# ---- scelot (PE/.NET -> shellcode generator) --------------------------------
+# ---- tools dir -------------------------------------------------------------
 $toolsDir  = Join-Path $binDir "tools"
 if (-not (Test-Path $toolsDir)) { New-Item -ItemType Directory $toolsDir | Out-Null }
-
-$scelotExe = Join-Path $PSScriptRoot "tools\scelot\scelot.exe"
-if (Test-Path $scelotExe) {
-    Copy-Item $scelotExe (Join-Path $toolsDir "scelot.exe") -Force
-    ok "tools\scelot\scelot.exe -> bin\tools\scelot.exe"
-} else {
-    info "tools\scelot\scelot.exe not found, skipping"
-}
 
 $bofTpl = Join-Path $PSScriptRoot "bof\build\bof_stager_template.x64.o"
 if (Test-Path $bofTpl) {
@@ -492,6 +444,106 @@ if (Test-Path $chmSrc) {
     ok "docs\chm\co2h.chm -> bin\co2h.chm"
 } else {
     info "docs\chm\co2h.chm not found, skipping"
+}
+
+# ---- scelot (PE/.NET -> shellcode generator) from kit\utils\scelot ---------
+$scelotDir = Join-Path $PSScriptRoot "kit\utils\scelot"
+$scelotCML = Join-Path $scelotDir "CMakeLists.txt"
+if (Test-Path $scelotCML) {
+    info "Building scelot (PE/.NET -> shellcode)..."
+    $scelotOk = $true
+
+    # 1) loader stub x64
+    info "  -> scelot: loader stub x64"
+    $ErrorActionPreference = "Continue"
+    & $cmake -S "$scelotDir\loader" -B "$scelotDir\build\stub_x64" `
+        -G "Visual Studio 17 2022" -A x64 -Wno-dev
+    if ($LASTEXITCODE -eq 0) {
+        & $cmake --build "$scelotDir\build\stub_x64" --config Release
+    }
+    if ($LASTEXITCODE -ne 0) { $scelotOk = $false }
+
+    # 2) loader stub x86
+    if ($scelotOk) {
+        info "  -> scelot: loader stub x86"
+        & $cmake -S "$scelotDir\loader" -B "$scelotDir\build\stub_x86" `
+            -G "Visual Studio 17 2022" -A Win32 -Wno-dev
+        if ($LASTEXITCODE -eq 0) {
+            & $cmake --build "$scelotDir\build\stub_x86" --config Release
+        }
+        if ($LASTEXITCODE -ne 0) { $scelotOk = $false }
+    }
+
+    # 3) generator (top-level)
+    if ($scelotOk) {
+        info "  -> scelot: generator"
+        & $cmake -S $scelotDir -B "$scelotDir\build\main" `
+            -G "Visual Studio 17 2022" -A x64 -Wno-dev
+        if ($LASTEXITCODE -eq 0) {
+            & $cmake --build "$scelotDir\build\main" --config Release
+        }
+        if ($LASTEXITCODE -ne 0) { $scelotOk = $false }
+    }
+    $ErrorActionPreference = "Stop"
+
+    if ($scelotOk) {
+        # scelot.exe outputs to project root
+        $scelotExeBuilt = Join-Path $scelotDir "scelot.exe"
+        if (Test-Path $scelotExeBuilt) {
+            Copy-Item $scelotExeBuilt "$toolsDir\scelot.exe" -Force
+            ok "kit\utils\scelot\scelot.exe -> bin\tools\scelot.exe"
+        }
+    } else {
+        Write-Host "[!] scelot build failed" -ForegroundColor Yellow
+    }
+} else {
+    info "kit\utils\scelot not found, skipping"
+}
+
+# ---- Kit Editor (.NET Framework 4.8, WPF) ---------------------------------
+$kitEditorProj = Join-Path $PSScriptRoot "kit\kit-editor\KitEditor.csproj"
+if (Test-Path $kitEditorProj) {
+    info "Building Kit Editor..."
+    # Find MSBuild
+    $msbuild = $null
+    $msbuildPaths = @(
+        "${env:ProgramFiles}\Microsoft Visual Studio\2022\Enterprise\MSBuild\Current\Bin\amd64\MSBuild.exe",
+        "${env:ProgramFiles}\Microsoft Visual Studio\2022\Enterprise\MSBuild\Current\Bin\MSBuild.exe",
+        "${env:ProgramFiles(x86)}\Microsoft Visual Studio\2022\BuildTools\MSBuild\Current\Bin\amd64\MSBuild.exe",
+        "${env:ProgramFiles(x86)}\Microsoft Visual Studio\2022\BuildTools\MSBuild\Current\Bin\MSBuild.exe",
+        "${env:ProgramFiles}\Microsoft Visual Studio\2022\Community\MSBuild\Current\Bin\amd64\MSBuild.exe",
+        "${env:ProgramFiles}\Microsoft Visual Studio\2022\Professional\MSBuild\Current\Bin\amd64\MSBuild.exe"
+    )
+    foreach ($mp in $msbuildPaths) {
+        if (Test-Path $mp) { $msbuild = $mp; break }
+    }
+    if (-not $msbuild) {
+        $found = Get-Command MSBuild.exe -ErrorAction SilentlyContinue
+        if ($found) { $msbuild = $found.Source }
+    }
+
+    if ($msbuild) {
+        # NuGet restore (AvalonEdit)
+        $nuget = Get-Command nuget.exe -ErrorAction SilentlyContinue
+        if ($nuget) {
+            & $nuget.Source restore $kitEditorProj -PackagesDirectory (Join-Path $PSScriptRoot "kit\kit-editor\packages")
+        } else {
+            info "nuget.exe not found - assuming packages already restored"
+        }
+
+        $ErrorActionPreference = "Continue"
+        & $msbuild $kitEditorProj /p:Configuration=Release /p:Platform=AnyCPU /v:minimal /nologo /m
+        $ErrorActionPreference = "Stop"
+        if ($LASTEXITCODE -eq 0) {
+            ok "Kit Editor built -> kit\KitEditor.exe"
+        } else {
+            Write-Host "[!] Kit Editor build failed" -ForegroundColor Yellow
+        }
+    } else {
+        info "MSBuild not found - skipping Kit Editor"
+    }
+} else {
+    info "kit\kit-editor\KitEditor.csproj not found, skipping"
 }
 
 # ---- Plugin SDK ------------------------------------------------------------
@@ -584,6 +636,16 @@ if (Test-Path $scriptsSrc) {
     if (-not (Test-Path $scriptsDst)) { New-Item -ItemType Directory $scriptsDst | Out-Null }
 }
 
+# ---- kit/ — Artifact Kit, Sleep Mask Kit, Process Inject Kit ---------------
+$kitSrc = Join-Path $PSScriptRoot "kit"
+$kitDst = Join-Path $binDir "kit"
+if (Test-Path $kitSrc) {
+    info "Copying kit\ -> bin\kit\..."
+    if (-not (Test-Path $kitDst)) { New-Item -ItemType Directory $kitDst | Out-Null }
+    Copy-Item "$kitSrc\*" $kitDst -Recurse -Force
+    ok "kit\ -> bin\kit\"
+}
+
 # ---- summary ---------------------------------------------------------------
 Write-Host ""
 Write-Host "================================================" -ForegroundColor Yellow
@@ -605,6 +667,7 @@ if (-not $NoBeacon) {
 Write-Host "  bin\shellcode\        (sc_*.bin shellcodes)"
 Write-Host "  bin\bof\co2h\         (Co2H BOFs)"
 Write-Host "  bin\bof\              (third-party BOF collection)"
+Write-Host "  bin\kit\              (Artifact Kit + KitEditor + scelot)"
 Write-Host "  bin\tools\scelot.exe  (PE/.NET to shellcode generator)"
 Write-Host "  bin\co2h.chm          (offline documentation)"
 Write-Host "  bin\sdk\              (plugin SDK: headers + example)"

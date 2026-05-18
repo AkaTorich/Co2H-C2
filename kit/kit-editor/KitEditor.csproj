@@ -29,7 +29,6 @@
     <PlatformTarget>AnyCPU</PlatformTarget>
     <DebugType>pdbonly</DebugType>
     <Optimize>true</Optimize>
-    <!-- Release-сборка кладёт KitEditor.exe прямо в kit\ (на уровень выше kit-editor\) -->
     <OutputPath>..\</OutputPath>
     <DefineConstants>TRACE</DefineConstants>
     <ErrorReport>prompt</ErrorReport>

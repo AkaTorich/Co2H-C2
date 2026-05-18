@@ -157,6 +157,35 @@ static HMODULE ah_find_module(DWORD hash) {
 // Export resolver
 // =============================================================================
 
+// Резолвер без обработки forwarded exports (для рекурсии из ah_resolve_export).
+// Возвращает NULL если экспорт forwarded или не найден.
+static FARPROC ah_resolve_export_no_fwd(HMODULE mod, DWORD hash) {
+    if (!mod) return NULL;
+    PIMAGE_DOS_HEADER dos = (PIMAGE_DOS_HEADER)mod;
+    PIMAGE_NT_HEADERS nt  = (PIMAGE_NT_HEADERS)((BYTE *)mod + dos->e_lfanew);
+    PIMAGE_DATA_DIRECTORY dd = &nt->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_EXPORT];
+    if (!dd->VirtualAddress || !dd->Size) return NULL;
+
+    PIMAGE_EXPORT_DIRECTORY exp = (PIMAGE_EXPORT_DIRECTORY)((BYTE *)mod + dd->VirtualAddress);
+    DWORD *names = (DWORD *)((BYTE *)mod + exp->AddressOfNames);
+    WORD  *ords  = (WORD  *)((BYTE *)mod + exp->AddressOfNameOrdinals);
+    DWORD *funcs = (DWORD *)((BYTE *)mod + exp->AddressOfFunctions);
+    DWORD exp_s = dd->VirtualAddress;
+    DWORD exp_e = dd->VirtualAddress + dd->Size;
+    DWORD i;
+
+    for (i = 0; i < exp->NumberOfNames; ++i) {
+        const char *fname = (const char *)((BYTE *)mod + names[i]);
+        if (ah_hash_ansi(fname) == hash) {
+            DWORD rva = funcs[ords[i]];
+            if (rva >= exp_s && rva < exp_e)
+                return NULL;  // тоже forwarded — пропускаем
+            return (FARPROC)((BYTE *)mod + rva);
+        }
+    }
+    return NULL;
+}
+
 static FARPROC ah_resolve_export(HMODULE mod, DWORD hash) {
     PIMAGE_DOS_HEADER dos;
     PIMAGE_NT_HEADERS nt;
@@ -177,10 +206,45 @@ static FARPROC ah_resolve_export(HMODULE mod, DWORD hash) {
     ords  = (WORD  *)((BYTE *)mod + exp->AddressOfNameOrdinals);
     funcs = (DWORD *)((BYTE *)mod + exp->AddressOfFunctions);
 
+    // Границы export directory — если RVA попадает сюда, это forwarded export
+    DWORD exp_start = dd->VirtualAddress;
+    DWORD exp_end   = dd->VirtualAddress + dd->Size;
+
     for (i = 0; i < exp->NumberOfNames; ++i) {
         const char *fname = (const char *)((BYTE *)mod + names[i]);
-        if (ah_hash_ansi(fname) == hash)
-            return (FARPROC)((BYTE *)mod + funcs[ords[i]]);
+        if (ah_hash_ansi(fname) == hash) {
+            DWORD rva = funcs[ords[i]];
+            if (rva >= exp_start && rva < exp_end) {
+                // Forwarded export: строка вида "NTDLL.RtlAllocateHeap"
+                // или "api-ms-win-core-heap-l1-1-0.HeapAlloc".
+                // Извлекаем имя функции после точки, хешируем,
+                // ищем по ВСЕМ загруженным модулям в PEB.
+                const char *fwd = (const char *)((BYTE *)mod + rva);
+                const char *dot = fwd;
+                while (*dot && *dot != '.') dot++;
+                if (!*dot) return NULL;
+                const char *fwdFunc = dot + 1;
+                DWORD fwdHash = ah_hash_ansi(fwdFunc);
+
+                // Обход InMemoryOrderModuleList — все загруженные модули
+                PPEB peb = ah_peb();
+                PPEB_LDR_DATA ldr = peb->Ldr;
+                PLIST_ENTRY head = &ldr->InMemoryOrderModuleList;
+                PLIST_ENTRY cur  = head->Flink;
+                while (cur != head) {
+                    PLDR_DATA_TABLE_ENTRY ent = (PLDR_DATA_TABLE_ENTRY)
+                        CONTAINING_RECORD(cur, LDR_DATA_TABLE_ENTRY, InMemoryOrderLinks);
+                    HMODULE tryMod = (HMODULE)ent->DllBase;
+                    if (tryMod && tryMod != mod) {
+                        FARPROC r = ah_resolve_export_no_fwd(tryMod, fwdHash);
+                        if (r) return r;
+                    }
+                    cur = cur->Flink;
+                }
+                return NULL;
+            }
+            return (FARPROC)((BYTE *)mod + rva);
+        }
     }
     return NULL;
 }
