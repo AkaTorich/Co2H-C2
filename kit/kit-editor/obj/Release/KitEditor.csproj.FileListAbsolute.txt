@@ -1,0 +1,14 @@
+C:\Users\psysh\OneDrive\Desktop\Co2H\kit\kit-editor\obj\Release\KitEditor.csproj.AssemblyReference.cache
+C:\Users\psysh\OneDrive\Desktop\Co2H\kit\kit-editor\obj\Release\MainWindow.baml
+C:\Users\psysh\OneDrive\Desktop\Co2H\kit\kit-editor\obj\Release\Icons.baml
+C:\Users\psysh\OneDrive\Desktop\Co2H\kit\kit-editor\obj\Release\App.baml
+C:\Users\psysh\OneDrive\Desktop\Co2H\kit\kit-editor\obj\Release\MainWindow.g.cs
+C:\Users\psysh\OneDrive\Desktop\Co2H\kit\kit-editor\obj\Release\App.g.cs
+C:\Users\psysh\OneDrive\Desktop\Co2H\kit\kit-editor\obj\Release\KitEditor_MarkupCompile.cache
+C:\Users\psysh\OneDrive\Desktop\Co2H\kit\kit-editor\obj\Release\KitEditor.g.resources
+C:\Users\psysh\OneDrive\Desktop\Co2H\kit\kit-editor\obj\Release\KitEditor.csproj.CoreCompileInputs.cache
+C:\Users\psysh\OneDrive\Desktop\Co2H\kit\kit-editor\obj\Release\KitEditor.csproj.Up2Date
+C:\Users\psysh\OneDrive\Desktop\Co2H\kit\kit-editor\obj\Release\KitEditor.exe
+C:\Users\psysh\OneDrive\Desktop\Co2H\kit\kit-editor\obj\Release\KitEditor.pdb
+C:\Users\psysh\OneDrive\Desktop\Co2H\kit\KitEditor.exe
+C:\Users\psysh\OneDrive\Desktop\Co2H\kit\KitEditor.pdb

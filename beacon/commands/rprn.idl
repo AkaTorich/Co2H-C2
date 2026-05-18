@@ -1,0 +1,113 @@
+typedef unsigned long  DWORD;
+typedef unsigned short WORD;
+
+typedef [context_handle] void* PRINTER_HANDLE;
+
+typedef struct _DEVMODE_CONTAINER {
+    DWORD cbBuf;
+    [size_is(cbBuf), unique] byte *pDevMode;
+} DEVMODE_CONTAINER;
+
+typedef struct _RPC_V2_NOTIFY_OPTIONS_TYPE {
+    WORD  Type;
+    WORD  Reserved0;
+    DWORD Reserved1;
+    DWORD Reserved2;
+    DWORD Count;
+    [size_is(Count), unique] WORD *pFields;
+} RPC_V2_NOTIFY_OPTIONS_TYPE;
+
+typedef struct _RPC_V2_NOTIFY_OPTIONS {
+    DWORD Version;
+    DWORD Reserved;
+    DWORD Count;
+    [size_is(Count), unique] RPC_V2_NOTIFY_OPTIONS_TYPE *pTypes;
+} RPC_V2_NOTIFY_OPTIONS;
+
+[
+    uuid(12345678-1234-ABCD-EF00-0123456789AB),
+    version(1.0),
+    implicit_handle(handle_t hRprnBinding)
+]
+interface RPRN
+{
+    /* opnum  0 */ void _Rpc0();
+    /* opnum  1 */ DWORD RpcOpenPrinter(
+        [in, string, unique] wchar_t        *pPrinterName,
+        [out]                PRINTER_HANDLE *pHandle,
+        [in, string, unique] wchar_t        *pDatatype,
+        [in]                 DEVMODE_CONTAINER *pDevModeContainer,
+        [in]                 DWORD           AccessRequired
+    );
+    /* opnum  2 */ void _Rpc2();
+    /* opnum  3 */ void _Rpc3();
+    /* opnum  4 */ void _Rpc4();
+    /* opnum  5 */ void _Rpc5();
+    /* opnum  6 */ void _Rpc6();
+    /* opnum  7 */ void _Rpc7();
+    /* opnum  8 */ void _Rpc8();
+    /* opnum  9 */ void _Rpc9();
+    /* opnum 10 */ void _Rpc10();
+    /* opnum 11 */ void _Rpc11();
+    /* opnum 12 */ void _Rpc12();
+    /* opnum 13 */ void _Rpc13();
+    /* opnum 14 */ void _Rpc14();
+    /* opnum 15 */ void _Rpc15();
+    /* opnum 16 */ void _Rpc16();
+    /* opnum 17 */ void _Rpc17();
+    /* opnum 18 */ void _Rpc18();
+    /* opnum 19 */ void _Rpc19();
+    /* opnum 20 */ void _Rpc20();
+    /* opnum 21 */ void _Rpc21();
+    /* opnum 22 */ void _Rpc22();
+    /* opnum 23 */ void _Rpc23();
+    /* opnum 24 */ void _Rpc24();
+    /* opnum 25 */ void _Rpc25();
+    /* opnum 26 */ void _Rpc26();
+    /* opnum 27 */ void _Rpc27();
+    /* opnum 28 */ void _Rpc28();
+    /* opnum 29 */ void _Rpc29();
+    /* opnum 30 */ void _Rpc30();
+    /* opnum 31 */ void _Rpc31();
+    /* opnum 32 */ void _Rpc32();
+    /* opnum 33 */ void _Rpc33();
+    /* opnum 34 */ void _Rpc34();
+    /* opnum 35 */ void _Rpc35();
+    /* opnum 36 */ void _Rpc36();
+    /* opnum 37 */ void _Rpc37();
+    /* opnum 38 */ void _Rpc38();
+    /* opnum 39 */ void _Rpc39();
+    /* opnum 40 */ void _Rpc40();
+    /* opnum 41 */ void _Rpc41();
+    /* opnum 42 */ void _Rpc42();
+    /* opnum 43 */ void _Rpc43();
+    /* opnum 44 */ void _Rpc44();
+    /* opnum 45 */ void _Rpc45();
+    /* opnum 46 */ void _Rpc46();
+    /* opnum 47 */ void _Rpc47();
+    /* opnum 48 */ void _Rpc48();
+    /* opnum 49 */ void _Rpc49();
+    /* opnum 50 */ void _Rpc50();
+    /* opnum 51 */ void _Rpc51();
+    /* opnum 52 */ void _Rpc52();
+    /* opnum 53 */ void _Rpc53();
+    /* opnum 54 */ void _Rpc54();
+    /* opnum 55 */ void _Rpc55();
+    /* opnum 56 */ void _Rpc56();
+    /* opnum 57 */ void _Rpc57();
+    /* opnum 58 */ void _Rpc58();
+    /* opnum 59 */ void _Rpc59();
+    /* opnum 60 */ void _Rpc60();
+    /* opnum 61 */ void _Rpc61();
+    /* opnum 62 */ void _Rpc62();
+    /* opnum 63 */ void _Rpc63();
+    /* opnum 64 */ void _Rpc64();
+    /* opnum 65 */ DWORD RpcRemoteFindFirstPrinterChangeNotificationEx(
+        [in]                 PRINTER_HANDLE          hPrinter,
+        [in]                 DWORD                   fdwFlags,
+        [in]                 DWORD                   fdwOptions,
+        [in, string, unique] wchar_t                *pszLocalMachine,
+        [in]                 DWORD                   dwPrinterLocal,
+        [in, unique]         RPC_V2_NOTIFY_OPTIONS  *pOptions
+    );
+}

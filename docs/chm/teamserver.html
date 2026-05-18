@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="ru"><head>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<title>Teamserver</title>
+<link rel="stylesheet" href="style.css">
+</head><body>
+<nav class="crumbs"><a href="index.html">Главная</a> &raquo; Teamserver</nav>
+
+<h1>Teamserver</h1>
+
+<p>Teamserver запускается из клиента кнопкой <b>Start Server</b> на toolbar'е.
+Конфигурация (TLS-сертификаты, listener'ы, БД) хранится в <code>configs/srv.toml</code>
+рядом с клиентом и редактируется через GUI; в норме напрямую запускать
+<code>teamserver.exe</code> не требуется.</p>
+
+<h2 id="config">Структура конфига <code>srv.toml</code></h2>
+
+<h3>Общие секции</h3>
+<pre>[operators]
+bind = "0.0.0.0"
+port = 50050
+
+[tls]
+cert = "certs/server.crt"
+key  = "certs/server.key"
+ca   = "certs/ca.crt"      # закомментировать для отключения mTLS (только для разработки)
+
+[database]
+path = "co2h.db"
+
+[io]
+threads = 0                 # 0 = авто (по числу ядер)
+
+[log]
+dir = "logs"</pre>
+
+<h3 id="listener-examples">Конфигурация listener'ов</h3>
+<p>Каждый listener описывается секцией <code>[[listeners]]</code>.
+Можно указать несколько секций — все запустятся при старте teamserver'а.</p>
+
+<h4>HTTPS listener</h4>
+<pre>[[listeners]]
+kind         = "https"
+name         = "https-main"
+bind         = "0.0.0.0"
+port         = 443
+tls_cert     = "certs/listener.crt"
+tls_key      = "certs/listener.key"
+profile      = "profiles/default.toml"   # malleable-профиль (необязательно)
+# listener_key = "aabb...64 hex символа" # необязательно; без него — авто</pre>
+<table>
+<tr><th>Параметр</th><th>Описание</th><th>По умолчанию</th></tr>
+<tr><td><code>kind</code></td><td>Тип listener'а</td><td><code>"https"</code></td></tr>
+<tr><td><code>name</code></td><td>Уникальное имя</td><td>—</td></tr>
+<tr><td><code>bind</code></td><td>Адрес привязки</td><td><code>"0.0.0.0"</code></td></tr>
+<tr><td><code>port</code></td><td>TCP-порт</td><td><code>443</code></td></tr>
+<tr><td><code>tls_cert</code></td><td>Путь к TLS-сертификату listener'а</td><td>—</td></tr>
+<tr><td><code>tls_key</code></td><td>Путь к приватному ключу TLS</td><td>—</td></tr>
+<tr><td><code>profile</code></td><td>Путь к malleable-профилю (URI, заголовки, cookie)</td><td>встроенный</td></tr>
+<tr><td><code>listener_key</code></td><td>AES-256 ключ (64 hex). Пустой = авто из БД или рандом</td><td>авто</td></tr>
+</table>
+
+<h4>TCP (raw) listener</h4>
+<p>TCP-листенеры обычно создаются динамически через UI клиента.
+При необходимости можно описать в конфиге:</p>
+<pre>[[listeners]]
+kind         = "tcp"
+name         = "tcp-internal"
+bind         = "0.0.0.0"
+port         = 4444
+# listener_key = "aabb...64 hex символа"</pre>
+
+<h4>SMB (named pipe) listener</h4>
+<p>SMB-листенеры также создаются динамически. Пример для конфига:</p>
+<pre>[[listeners]]
+kind         = "smb"
+name         = "smb-lateral"
+bind         = "0.0.0.0"
+port         = 445
+# listener_key = "aabb...64 hex символа"</pre>
+
+<h4>DNS (UDP) listener</h4>
+<pre>[[listeners]]
+kind         = "dns"
+name         = "dns-c2"
+bind         = "0.0.0.0"
+port         = 53
+c2_domain    = "c2.example.com"
+# listener_key = "aabb...64 hex символа"</pre>
+<table>
+<tr><th>Параметр</th><th>Описание</th></tr>
+<tr><td><code>c2_domain</code></td><td>Авторитарный поддомен, делегированный на IP teamserver'а через NS-запись</td></tr>
+<tr><td><code>port</code></td><td>UDP-порт (стандартный — <code>53</code>)</td></tr>
+</table>
+
+<h4>Несколько listener'ов одновременно</h4>
+<p>Можно запустить сразу HTTPS и DNS — каждый со своим ключом:</p>
+<pre>[[listeners]]
+kind         = "https"
+name         = "https-main"
+bind         = "0.0.0.0"
+port         = 443
+tls_cert     = "certs/listener.crt"
+tls_key      = "certs/listener.key"
+
+[[listeners]]
+kind         = "dns"
+name         = "dns-backup"
+bind         = "0.0.0.0"
+port         = 53
+c2_domain    = "c2.example.com"</pre>
+
+<h3 id="listener-key">Параметр <code>listener_key</code></h3>
+<p>AES-256 ключ listener'а (64 hex-символа). Логика выбора ключа при старте:</p>
+<ol>
+<li>Если <code>listener_key</code> указан в конфиге — используется как есть и сохраняется в БД.</li>
+<li>Иначе — ключ берётся из БД (сохранён от предыдущего запуска).</li>
+<li>Если в БД нет — генерируется случайный и сохраняется.</li>
+</ol>
+<p><b>Применение:</b> когда beacon настроен на автоматическое переключение
+между серверами (<a href="listeners.html#fallback">fallback C2</a>),
+все серверы в цепочке должны использовать один и тот же listener key.</p>
+<p>Скопировать ключ текущего listener'а: вкладка <b>Listeners</b> &rarr;
+правый клик &rarr; <b>Copy listener key</b>.</p>
+
+<h2 id="startup">Что делает teamserver при старте</h2>
+<ol>
+<li>Читает конфиг и инициализирует подсистему сетевого ввода-вывода.</li>
+<li>Открывает базу данных и мигрирует схему.</li>
+<li>Поднимает порт для подключения операторов (mTLS).</li>
+<li>Запускает все listener'ы, объявленные в секциях <code>[[listeners]]</code>.</li>
+<li>Генерирует ключ для каждого listener'а и отображает его во вкладке Listeners клиента.</li>
+</ol>
+
+<h2 id="auth">Аутентификация операторов</h2>
+<p>Пароли операторов хранятся в БД в виде хеша. Дефолтный admin создаётся при первой инициализации:</p>
+<table>
+<tr><td>username</td><td><code>admin</code></td></tr>
+<tr><td>password</td><td><code>changeme</code></td></tr>
+</table>
+<div class="warning">Сменить пароль — обязательная первая операция в реальном развёртывании.</div>
+
+<h2 id="creds">Credentials store</h2>
+<p>Общий склад учётных данных всех операторов. Хранится в БД teamserver'а,
+изменения автоматически рассылаются всем подключённым операторам — вкладка
+Credentials у каждого обновляется без перезагрузки.</p>
+<p>Поддерживаемые типы записей: <code>password</code>, <code>hash</code>,
+<code>ticket</code>, <code>identity</code>. Управление — через вкладку <b>Credentials</b>
+в клиенте: <b>Refresh</b>, <b>Add</b>, <b>Delete</b>.</p>
+
+<h2 id="from-client">Запуск из клиента</h2>
+<p>Toolbar &rarr; <b>Start Server</b>. Stdout/stderr процесса автоматически идут во
+вкладку <b>Logs</b>, статус (running / stopped) и порт listener'а отображаются в
+строке состояния клиента. <b>Stop Server</b> корректно завершает процесс.</p>
+
+<h2 id="standalone">Автономный запуск (без клиента)</h2>
+<p>Teamserver можно запустить отдельно от клиента — например, на удалённом VPS
+или в Docker-контейнере. Единственный обязательный аргумент — путь к конфигу:</p>
+
+<h3>Windows</h3>
+<pre>teamserver.exe --config C:\path\to\srv.toml</pre>
+
+<h3>Linux</h3>
+<pre>./teamserver --config /opt/co2h/srv.toml</pre>
+
+<p>Если аргумент <code>--config</code> не указан, teamserver ищет
+<code>configs/srv.toml</code> в текущем рабочем каталоге.</p>
+
+<h3>Дополнительные аргументы</h3>
+<table>
+<tr><th>Аргумент</th><th>Описание</th><th>По умолчанию</th></tr>
+<tr><td><code>--config &lt;path&gt;</code></td><td>Путь к TOML-конфигу</td><td><code>configs/srv.toml</code></td></tr>
+<tr><td><code>--bind &lt;addr&gt;</code></td><td>Адрес привязки порта операторов (переопределяет конфиг)</td><td>из конфига</td></tr>
+<tr><td><code>--port &lt;num&gt;</code></td><td>Порт для подключения операторов (переопределяет конфиг)</td><td>из конфига</td></tr>
+<tr><td><code>--verbose</code></td><td>Расширенное логирование (debug-уровень)</td><td>выкл.</td></tr>
+</table>
+
+<h3>Пример: запуск на VPS</h3>
+<pre># Подготовка конфига и сертификатов
+mkdir -p /opt/co2h/certs /opt/co2h/logs
+cp srv.toml /opt/co2h/
+cp server.crt server.key ca.crt /opt/co2h/certs/
+
+# Запуск в фоне
+cd /opt/co2h
+./teamserver --config srv.toml &amp;</pre>
+
+<p>После запуска операторы подключаются клиентом, указав IP и порт teamserver'а
+в окне <b>Connect to server</b>.</p>
+
+</body></html>

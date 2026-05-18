@@ -1,0 +1,34 @@
+# Co2H Team Server configuration.
+# Run: teamserver --config configs/srv.toml
+# First time: run scripts/gen-certs.sh to generate TLS certificates.
+
+[operators]
+bind = "0.0.0.0"
+port = 50050
+
+[tls]
+cert = "../certs/server.crt"
+key  = "../certs/server.key"
+ca   = "../certs/ca.crt"
+
+[database]
+path = "co2h_state.db"
+
+[io]
+threads = 4
+
+[log]
+dir = "logs"
+
+# HTTPS listener for beacon callbacks.
+# Add more [[listeners]] blocks for additional listeners.
+#[[listeners]]
+#kind     = "https"
+#name     = "default-https"
+#bind     = "0.0.0.0"
+#port     = 443
+#tls_cert = "../certs/listener.crt"
+#tls_key  = "../certs/listener.key"
+#profile  = "../profiles/default.toml"
+# listener_key is printed by the server on startup when auto-generated.
+# Copy the printed hex into artifact-gen --key <hex> when building beacons.

@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="ru"><head>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<title>Быстрый старт</title>
+<link rel="stylesheet" href="style.css">
+</head><body>
+<nav class="crumbs"><a href="index.html">Главная</a> &raquo; Быстрый старт</nav>
+
+<h1>Быстрый старт</h1>
+
+<h2 id="certs">1. Сертификаты mTLS</h2>
+<p>Генерируются автоматически при первой сборке проекта или вручную через меню
+<b>Tools &rarr; Generate Certificates</b>.
+Файлы появляются в каталоге <code>certs\</code>:
+<code>ca.crt</code>, <code>server.crt</code>/<code>server.key</code>,
+<code>operator.crt</code>/<code>operator.key</code>.</p>
+
+<h2 id="client">2. Запуск клиента</h2>
+<p>Двойной клик по <code>co2h-client.exe</code>. В диалоге логина:</p>
+<table>
+<tr><th>Поле</th><th>Значение по умолчанию</th></tr>
+<tr><td>Host</td><td>127.0.0.1</td></tr>
+<tr><td>Port</td><td>5050</td></tr>
+<tr><td>Username</td><td>admin</td></tr>
+<tr><td>Password</td><td>changeme</td></tr>
+<tr><td>CA</td><td><code>certs\ca.crt</code></td></tr>
+<tr><td>Cert / Key</td><td><code>certs\operator.crt</code> / <code>certs\operator.key</code></td></tr>
+</table>
+
+<h2 id="server">3. Запуск teamserver'а</h2>
+<p>На toolbar'е клиента — кнопка <b>Start Server</b>. Запускает встроенный
+teamserver рядом с клиентом, использует <code>configs/srv.toml</code>. Stdout/stderr
+процесса идут во вкладку <b>Logs</b>. <b>Stop Server</b> завершает его.</p>
+
+<h2 id="listener">4. Создание listener'а</h2>
+<p>HTTPS-listener запускается автоматически из <code>srv.toml</code>.
+TCP, SMB и DNS создаются через клиент: toolbar &rarr; <b>New listener</b>
+(или кнопка <b>Add</b> во вкладке <b>Listeners</b>),
+выбрать тип, указать параметры. После создания listener появится в списке с ключом.</p>
+<p>Для DNS: указать <b>C2 domain</b> — поддомен, авторитарным сервером для которого
+является teamserver (NS-запись в DNS регистратора).</p>
+
+<h2 id="gen">5. Генерация beacon'а</h2>
+<p>Toolbar &rarr; <b>Generate artifact</b>. В dropdown <b>Listener</b> выбрать нужный
+listener — ключ и параметры подставятся автоматически. Указать формат (EXE/DLL),
+sleep/jitter и путь сохранения.</p>
+<p>Beacon зашивает адрес и ключ выбранного listener'а. При запуске он подключается
+именно к этому listener'у; teamserver идентифицирует beacon по зашифрованному check-in.</p>
+
+<h2 id="run">6. Запуск beacon'а на цели</h2>
+<p>Скопировать <code>payload.exe</code> на тестовую машину (Windows 10/11 x64) и запустить.
+Через несколько секунд beacon появится во вкладке <b>Sessions</b>.</p>
+
+<h2 id="interact">7. Взаимодействие</h2>
+<p>Двойной клик по строке beacon'а &rarr; нижняя <b>консоль</b> станет активной.
+Введите <code>pwd</code> и нажмите <kbd>Enter</kbd>.</p>
+
+</body></html>

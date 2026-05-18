@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+<html lang="ru"><head>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<title>Plugin API</title>
+<link rel="stylesheet" href="style.css">
+</head><body>
+<nav class="crumbs"><a href="index.html">Главная</a> &raquo; Plugin API</nav>
+
+<h1>Plugin API</h1>
+
+<p>Клиент Co2H поддерживает динамические плагины — разделяемые библиотеки
+(<code>.dll</code> на Windows, <code>.so</code> на Linux), которые загружаются
+из папки <code>plugins/</code> рядом с исполняемым файлом <code>co2h-client</code>
+при запуске.</p>
+
+<p>Плагин может:</p>
+<ul>
+<li>Добавлять вкладки в главное окно</li>
+<li>Регистрировать консольные команды (с автодополнением и подсказками)</li>
+<li>Отправлять задачи beacon'ам и получать результат через callback</li>
+<li>Писать в консоль и журнал (Logs)</li>
+<li>Читать модели данных (сессии, listener'ы, учётные данные, загрузки)</li>
+</ul>
+
+<!-- ──────────────────────────────────────────────── -->
+<h2 id="structure">Структура плагина</h2>
+
+<p>Каждый плагин — отдельная DLL/SO, экспортирующая две C-функции:</p>
+<pre>
+#include "client/plugin/IClientPlugin.hpp"
+
+CO2H_PLUGIN_EXPORT
+co2h::client::plugin::IClientPlugin* co2h_plugin_create();
+
+CO2H_PLUGIN_EXPORT
+void co2h_plugin_destroy(co2h::client::plugin::IClientPlugin*);
+</pre>
+
+<p>Макрос <code>CO2H_PLUGIN_EXPORT</code> раскрывается в
+<code>extern "C" __declspec(dllexport)</code> на Windows и
+<code>extern "C" __attribute__((visibility("default")))</code> на Linux.</p>
+
+<!-- ──────────────────────────────────────────────── -->
+<h2 id="interface">Интерфейс IClientPlugin</h2>
+
+<pre>
+namespace co2h::client::plugin {
+
+struct PluginInfo {
+    const char* name;        // короткое имя ("my_recon")
+    const char* version;     // "1.0.0"
+    const char* author;
+    const char* description; // одна строка
+};
+
+class IClientPlugin {
+public:
+    virtual ~IClientPlugin() = default;
+
+    // Метаданные плагина.
+    virtual PluginInfo info() const = 0;
+
+    // Вызывается один раз после загрузки.
+    // ctx — объект PluginContext для взаимодействия с клиентом.
+    virtual void initialize(PluginContext* ctx) = 0;
+
+    // Вызывается перед выгрузкой. Освободить ресурсы.
+    virtual void shutdown() = 0;
+};
+
+}
+</pre>
+
+<!-- ──────────────────────────────────────────────── -->
+<h2 id="context">PluginContext — API для плагинов</h2>
+
+<h3 id="ctx-tabs">Управление виджетами плагина</h3>
+<table>
+<tr><th>Метод</th><th>Описание</th></tr>
+<tr><td><code>int addPluginButton(QWidget* w, const QIcon&amp; icon, const QString&amp; label)</code></td>
+    <td>Добавить виджет плагина. На панели плагинов появится иконка-кнопка.
+    Первый клик по кнопке открывает интерфейс плагина (основные вкладки скрываются),
+    повторный клик по той же кнопке скрывает плагин и возвращает вкладки клиента.
+    Возвращает индекс. Виджет принадлежит плагину — удалять его нужно в <code>shutdown()</code>.</td></tr>
+<tr><td><code>void removePluginButton(QWidget* w)</code></td>
+    <td>Убрать ранее добавленный виджет плагина.</td></tr>
+</table>
+
+<h3 id="ctx-tasks">Выполнение задач</h3>
+
+<p>Именованные методы для типовых операций — плагину не нужно знать числовые коды протокола:</p>
+<table>
+<tr><th>Метод</th><th>Описание</th></tr>
+<tr><td><code>shell(beaconId, cmd, cb)</code></td>
+    <td>Выполнить команду через <code>cmd.exe /c</code>.</td></tr>
+<tr><td><code>run(beaconId, cmdline, cb)</code></td>
+    <td>Запустить процесс напрямую (без cmd.exe).</td></tr>
+<tr><td><code>ps(beaconId, cb)</code></td>
+    <td>Список процессов.</td></tr>
+<tr><td><code>ls(beaconId, path, cb)</code></td>
+    <td>Содержимое каталога (пустой путь = текущий).</td></tr>
+<tr><td><code>pwd(beaconId, cb)</code></td>
+    <td>Текущий каталог.</td></tr>
+<tr><td><code>getuid(beaconId, cb)</code></td>
+    <td>Текущий пользователь / SID.</td></tr>
+<tr><td><code>screenshot(beaconId, cb)</code></td>
+    <td>Снимок экрана.</td></tr>
+<tr><td><code>download(beaconId, remotePath, cb)</code></td>
+    <td>Скачать файл с цели.</td></tr>
+<tr><td><code>upload(beaconId, payload, cb)</code></td>
+    <td>Загрузить данные на цель.</td></tr>
+</table>
+
+<p>Каждый метод возвращает <code>rpc_id</code> (0 при ошибке).
+<code>cb</code> — необязательный callback <code>void(const QByteArray&amp; output, const QString&amp; error)</code>,
+вызывается при получении результата.</p>
+
+<p>Маршрутизация полностью автоматическая: <code>rpc_id</code> привязывается к callback,
+при ответе сервера привязка переносится на <code>task_id</code>, при поступлении вывода —
+callback вызывается и удаляется.</p>
+
+<div class="note">
+Для нестандартных операций (BOF, пользовательские расширения) доступен
+низкоуровневый метод <code>sendTask(beaconId, op, payload, cb)</code>,
+принимающий числовой код операции.
+</div>
+
+<h3 id="ctx-exec">Выпол��ение встроенных команд</h3>
+
+<table>
+<tr><th>Метод</th><th>Описание</th></tr>
+<tr><td><code>execCommand(beaconId, command, cb)</code></td>
+    <td>Выполнить любую встроенную команду клиента по имени и получить вывод
+    в callback. Строка <code>command</code> — полная команда как в консоли,
+    например <code>"bof enum.o go -- z domain.local"</code> или <code>"hashdump"</code>.
+    Можно вызывать несколько раз подряд — каждый callback получит свой результат.</td></tr>
+</table>
+
+<p>Пример использования:</p>
+<pre>
+ctx_-&gt;execCommand(bid, "hashdump",
+    [this](const QByteArray&amp; out, const QString&amp; err) {
+        if (err.isEmpty())
+            parseHashes(QString::fromUtf8(out));
+        else
+            ctx_-&gt;consoleError("[myplugin] hashdump failed: " + err);
+    });
+</pre>
+
+<h3 id="ctx-commands">Консольные команды</h3>
+<table>
+<tr><th>Метод</th><th>Описание</th></tr>
+<tr><td><code>void registerCommand(name, argsHelp, description, handler)</code></td>
+    <td>Зарегистрировать команду. <code>handler</code> — функция
+    <code>void(const QString&amp; beaconId, const QString&amp; args)</code>.
+    Команда появится в автодополнении консоли с пометкой <code>[plugin]</code>.</td></tr>
+</table>
+
+<h3 id="ctx-output">Вывод</h3>
+<table>
+<tr><th>Метод</th><th>Описание</th></tr>
+<tr><td><code>void consoleWrite(const QString&amp; text)</code></td>
+    <td>Вывести текст в консоль активного beacon'а (светлый цвет).</td></tr>
+<tr><td><code>void consoleError(const QString&amp; text)</code></td>
+    <td>Вывести ошибку в консоль (красный цвет).</td></tr>
+<tr><td><code>void log(const QString&amp; text)</code></td>
+    <td>Вывести строку во вкладку Logs.</td></tr>
+</table>
+
+<h3 id="ctx-models">Доступ к моделям данных</h3>
+<table>
+<tr><th>Метод</th><th>Тип</th><th>Описание</th></tr>
+<tr><td><code>serverClient()</code></td><td><code>ServerClient*</code></td>
+    <td>Низкоуровневый клиент teamserver'а. Для продвинутых случаев.</td></tr>
+<tr><td><code>sessionsModel()</code></td><td><code>SessionsModel*</code></td>
+    <td>Модель beacon'ов. <code>row(i)</code> возвращает <code>BeaconRow*</code>
+    (id, host, user, pid, arch, ip, listener и т.д.).</td></tr>
+<tr><td><code>listenersModel()</code></td><td><code>ListenersModel*</code></td>
+    <td>Модель listener'ов.</td></tr>
+<tr><td><code>downloadsModel()</code></td><td><code>DownloadsModel*</code></td>
+    <td>Модель загрузок.</td></tr>
+<tr><td><code>credentialsModel()</code></td><td><code>CredentialsModel*</code></td>
+    <td>Модель учётных данных.</td></tr>
+</table>
+
+<!-- ──────────────────────────────────────────────── -->
+<h2 id="example">Пример: плагин «Recon»</h2>
+
+<p>Минимальный плагин, который добавляет вкладку <b>Recon</b> и консольную
+команду <code>recon</code>. При вызове запускает три разведывательные команды
+на beacon'е и собирает результат в свою вкладку.</p>
+
+<pre>
+#include "client/plugin/IClientPlugin.hpp"
+#include "client/plugin/PluginContext.hpp"
+
+#include &lt;QTextEdit&gt;
+#include &lt;QVBoxLayout&gt;
+#include &lt;QWidget&gt;
+
+using namespace co2h::client;
+using namespace co2h::client::plugin;
+
+class ReconPlugin : public IClientPlugin {
+public:
+    PluginInfo info() const override {
+        return {"recon", "1.0.0", "operator",
+                "Basic recon: whoami + ipconfig + net user"};
+    }
+
+    void initialize(PluginContext* ctx) override {
+        ctx_ = ctx;
+
+        // Создаём виджет вкладки.
+        tab_ = new QWidget;
+        out_ = new QTextEdit(tab_);
+        out_-&gt;setReadOnly(true);
+        auto* lay = new QVBoxLayout(tab_);
+        lay-&gt;addWidget(out_);
+
+        ctx_-&gt;addPluginButton(tab_, QIcon(), "Recon");
+
+        // Регистрируем команду.
+        ctx_-&gt;registerCommand(
+            "recon", "[target]",
+            "whoami + ipconfig + net user на beacon'е",
+            [this](const QString&amp; bid, const QString&amp;) {
+                runRecon(bid);
+            });
+    }
+
+    void shutdown() override {
+        if (ctx_ &amp;&amp; tab_) ctx_-&gt;removePluginButton(tab_);
+        delete tab_; tab_ = nullptr;
+    }
+
+private:
+    void runRecon(const QString&amp; bid) {
+        ctx_-&gt;consoleWrite("[recon] starting...");
+
+        ctx_-&gt;shell(bid, "whoami /all",
+            [this](const QByteArray&amp; o, const QString&amp; e) {
+                if (e.isEmpty())
+                    out_-&gt;append("=== whoami ===\n"
+                        + QString::fromLocal8Bit(o));
+                else
+                    out_-&gt;append("ERROR: " + e);
+            });
+
+        ctx_-&gt;shell(bid, "ipconfig /all",
+            [this](const QByteArray&amp; o, const QString&amp; e) {
+                if (e.isEmpty())
+                    out_-&gt;append("=== ipconfig ===\n"
+                        + QString::fromLocal8Bit(o));
+            });
+    }
+
+    PluginContext* ctx_ = nullptr;
+    QWidget*       tab_ = nullptr;
+    QTextEdit*     out_ = nullptr;
+};
+
+// Экспортируемые функции.
+CO2H_PLUGIN_EXPORT IClientPlugin* co2h_plugin_create() {
+    return new ReconPlugin;
+}
+CO2H_PLUGIN_EXPORT void co2h_plugin_destroy(IClientPlugin* p) {
+    delete p;
+}
+</pre>
+
+<!-- ──────────────────────────────────────────────── -->
+<h2 id="icons">Иконка плагина</h2>
+
+<p>Каждый плагин <b>хранит свою иконку внутри исходного кода</b> как строковую
+константу с полным текстом SVG-файла. Иконка не зависит от ресурсов клиента —
+при загрузке плагин сам рендерит SVG в <code>QIcon</code>.</p>
+
+<h3>Шаблон встраивания иконки</h3>
+
+<pre>
+#include &lt;QIcon&gt;
+#include &lt;QPainter&gt;
+#include &lt;QPixmap&gt;
+#include &lt;QSvgRenderer&gt;
+
+// Полный текст SVG — хранится как raw string literal.
+static const char kMyPluginSvg[] = R"SVG(
+&lt;svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"&gt;
+  &lt;!-- ... содержимое иконки ... --&gt;
+&lt;/svg&gt;
+)SVG";
+
+// Вспомогательная функция: SVG-строка → QIcon.
+static QIcon iconFromSvg(const char* data) {
+    QByteArray svg(data);
+    QSvgRenderer r(svg);
+    QPixmap pix(24, 24);
+    pix.fill(Qt::transparent);
+    QPainter p(&amp;pix);
+    r.render(&amp;p);
+    return QIcon(pix);
+}
+</pre>
+
+<h3>Использование при регистрации</h3>
+
+<pre>
+void initialize(PluginContext* ctx) override {
+    // ...
+    ctx-&gt;addPluginButton(tab_, iconFromSvg(kMyPluginSvg), "My Plugin");
+}
+</pre>
+
+<div class="note">
+<b>Требования к SVG:</b>
+<ul>
+<li>Размер viewBox — <code>0 0 24 24</code> (стандартный для иконок клиента).</li>
+<li>Допускаются градиенты, opacity, любые SVG-примитивы.</li>
+<li>Не используйте внешние ссылки (<code>xlink:href</code> на внешние файлы).</li>
+<li>Для рендеринга необходим модуль <code>Qt6::Svg</code> — добавьте его
+в <code>CMakeLists.txt</code> (см. ниже).</li>
+</ul>
+</div>
+
+<!-- ──────────────────────────────────────────────── -->
+<h2 id="build">Сборка плагина</h2>
+
+<p>Минимальный <code>CMakeLists.txt</code> для плагина:</p>
+<pre>
+cmake_minimum_required(VERSION 3.24)
+project(my_plugin LANGUAGES CXX)
+
+find_package(Qt6 6.4 COMPONENTS Core Gui Widgets Svg REQUIRED)
+set(CMAKE_AUTOMOC ON)
+
+add_library(my_plugin SHARED MyPlugin.cpp)
+target_link_libraries(my_plugin PRIVATE
+    Qt6::Core Qt6::Gui Qt6::Widgets Qt6::Svg)
+
+set_target_properties(my_plugin PROPERTIES
+    OUTPUT_NAME "my_plugin"
+    PREFIX ""
+    RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/plugins"
+)
+</pre>
+
+<div class="warning">
+Плагин должен быть собран тем же компилятором и версией Qt, что и клиент.
+Несовпадение приведёт к крашу при загрузке.
+</div>
+
+<!-- ──────────────────────────────────────────────── -->
+<h2 id="lifecycle">Жизненный цикл</h2>
+
+<ol>
+<li>При запуске клиент сканирует <code>plugins/</code> на наличие <code>*.dll</code> (Windows)
+    или <code>*.so</code> (Linux).</li>
+<li>Для каждого файла вызывается <code>LoadLibrary</code> / <code>dlopen</code>.</li>
+<li>Ищутся экспорты <code>co2h_plugin_create</code> и <code>co2h_plugin_destroy</code>.
+    Если хотя бы один не найден — файл пропускается.</li>
+<li>Вызывается <code>co2h_plugin_create()</code> &rarr; указатель на <code>IClientPlugin</code>.</li>
+<li>Вызывается <code>initialize(ctx)</code> — плагин добавляет вкладки, команды и т.д.</li>
+<li>При завершении клиента: <code>shutdown()</code> &rarr; <code>co2h_plugin_destroy(ptr)</code>
+    &rarr; <code>FreeLibrary</code> / <code>dlclose</code>.</li>
+</ol>
+
+<p>Количество загруженных плагинов записывается во вкладку Logs при старте.</p>
+
+<!-- ──────────────────────────────────────────────── -->
+<h2 id="tips">Рекомендации</h2>
+
+<ul>
+<li>Удаляйте свои виджеты в <code>shutdown()</code>, а не в деструкторе — к моменту
+    вызова деструктора <code>QTabWidget</code> может быть уже уничтожен.</li>
+<li>Callback из <code>sendTask</code> вызывается один раз. Для повторяющихся задач
+    отправляйте новый <code>sendTask</code> из callback'а.</li>
+<li>Не блокируйте UI-поток длительными операциями — используйте <code>QThread</code>
+    или <code>QtConcurrent</code>.</li>
+<li>Модели (<code>sessionsModel()</code> и т.д.) — только для чтения. Запись через них
+    не запрещена, но не рекомендуется.</li>
+<li>Для отправки задач используйте числовые opcode'ы из <code>beacon.h</code>.
+    Новые opcode'ы можно определять совместно с кастомными BOF.</li>
+</ul>
+
+<div class="warning">
+<b>Кодировка вывода beacon'а.</b> Beacon отправляет текст в UTF-8 на Windows
+и в системной кодовой странице на Linux. При декодировании <code>QByteArray</code>
+из callback'а используйте условную компиляцию:
+<pre>
+#ifdef _WIN32
+    QString text = QString::fromUtf8(output);
+#else
+    QString text = QString::fromLocal8Bit(output);
+#endif
+</pre>
+Без этого русские символы будут отображаться некорректно.
+</div>
+
+</body></html>

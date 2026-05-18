@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="ru"><head>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<title>Artifact Kit</title>
+<link rel="stylesheet" href="style.css">
+</head><body>
+<nav class="crumbs"><a href="index.html">Главная</a> &raquo; Artifact Kit</nav>
+
+<h1>Artifact Kit</h1>
+
+<p>Artifact Kit — набор шаблонных исполняемых файлов (стабов), в которые
+<code>artifact-gen</code> встраивает скомпилированный beacon DLL.
+Каждый стаб реализует свою технику доставки/загрузки бикона на цель.
+Все стабы компилируются без CRT (<code>/NODEFAULTLIB</code>, <code>/Zl</code>, <code>/GS-</code>).</p>
+
+<ul class="toc">
+<li><a href="#structure">Структура каталога</a></li>
+<li><a href="#payload-section">Секция .co2pay</a></li>
+<li><a href="#header">Общий заголовок artifact.h</a></li>
+<li><a href="#stubs">Описание стабов</a></li>
+<li><a href="#build">Сборка (build_all.bat)</a></li>
+<li><a href="#writing">Как написать свой стаб</a></li>
+</ul>
+
+<!-- ====================================================================== -->
+<h2 id="structure">Структура каталога</h2>
+
+<pre>
+kit/artifact/
++-- artifact.h            -- общий заголовок (макросы, хелперы)
++-- build_all.bat         -- сборка всех стабов (x64 + x86)
++-- exe_basic/            -- базовый EXE: temp file + LoadLibraryW
++-- exe_debug/            -- отладочный EXE: MessageBox на каждом этапе
++-- exe_svc/              -- Windows Service
++-- exe_reflective/       -- In-memory PE loader (без записи на диск)
++-- exe_inject/           -- Remote DLL injection в другой процесс
++-- exe_ppid/             -- PPID-spoofing + injection
++-- dll_sideload/         -- DLL для side-loading / search-order hijack
++-- artifact/             -- выходной каталог (скомпилированные .exe/.dll)
+</pre>
+
+<!-- ====================================================================== -->
+<h2 id="payload-section">Секция .co2pay</h2>
+
+<p>Каждый стаб содержит именованную PE-секцию <code>.co2pay</code> — слот для beacon DLL.
+Сентинел при компиляции:</p>
+
+<pre>
+43 4F 32 48 50 41 59 4C  00 00 00 00 ...   ("CO2HPAYL" + 4-byte size + zeros)
+</pre>
+
+<p><code>artifact-gen</code> находит этот сентинел в скомпилированном стабе, записывает размер DLL
+в байты [8..11] и копирует тело DLL начиная со смещения 12. Максимальный размер: <b>512 КБ</b>.</p>
+
+<p>Макрос из <code>artifact.h</code>:</p>
+<pre>
+ART_DECLARE_PAYLOAD();
+// Раскрывается в:
+//   #pragma section(".co2pay", read)
+//   __declspec(allocate(".co2pay"))
+//   static const unsigned char g_payload[512*1024 + 12] = {"CO2HPAYL", 0, ...};
+</pre>
+
+<!-- ====================================================================== -->
+<h2 id="header">Общий заголовок artifact.h</h2>
+
+<p>Файл <code>kit/artifact/artifact.h</code> содержит повторяющийся код, общий для всех стабов:</p>
+
+<table>
+<tr><th>Функция / макрос</th><th>Назначение</th></tr>
+<tr><td><code>ART_DECLARE_PAYLOAD()</code></td><td>Объявление секции <code>.co2pay</code> с сентинелом</td></tr>
+<tr><td><code>art_get_size(payload)</code></td><td>Проверка магика + возврат размера DLL (0 при ошибке)</td></tr>
+<tr><td><code>art_memcpy(dst, src, n)</code></td><td>Побайтовое копирование без CRT</td></tr>
+<tr><td><code>art_write_temp(path, payload, sz)</code></td><td>Запись DLL во временный файл (<code>%TEMP%</code>)</td></tr>
+<tr><td><code>art_load_beacon(payload, sz)</code></td><td>Запись + <code>LoadLibraryW</code> + удаление файла</td></tr>
+<tr><td><code>art_inject_remote(hProcess, path)</code></td><td>Инжект через <code>CreateRemoteThread(LoadLibraryW)</code></td></tr>
+</table>
+
+<p>Все функции объявлены как <code>static</code> — каждый стаб получает собственную копию;
+неиспользуемые удаляются линкером.</p>
+
+<!-- ====================================================================== -->
+<h2 id="stubs">Описание стабов</h2>
+
+<!-- ---- exe_basic ---- -->
+<h3 id="exe_basic">exe_basic</h3>
+<p>Минимальный EXE. Записывает DLL во временный файл, загружает через
+<code>LoadLibraryW</code>, удаляет файл, засыпает навсегда. Точка входа:
+<code>stub_main</code>. Используйте как шаблон для собственных стабов.</p>
+
+<!-- ---- exe_debug ---- -->
+<h3 id="exe_debug">exe_debug</h3>
+<p>Идентичен <code>exe_basic</code>, но показывает <code>MessageBoxA</code> на каждом этапе
+и устанавливает Vectored Exception Handler (VEH) для отлова исключений внутри
+<code>DllEntry</code> beacon'а. Используйте при отладке проблем с загрузкой.</p>
+
+<div class="warning">Не используйте в операциях — диалоги видны пользователю.</div>
+
+<!-- ---- exe_svc ---- -->
+<h3 id="exe_svc">exe_svc</h3>
+<p>Обёртка Windows Service. При запуске через SCM регистрирует
+<code>ServiceCtrlHandler</code>, сообщает <code>SERVICE_RUNNING</code> и держит beacon
+живым. При прямом запуске (не от SCM) молча переключается на поведение <code>exe_basic</code>.</p>
+
+<pre>
+sc create BeaconSvc binPath= "C:\path\exe_svc.x64.exe" start= auto
+sc start  BeaconSvc
+</pre>
+
+<div class="note">Service API (advapi32.dll) загружается динамически —
+стаб линкуется только с <code>kernel32.lib + user32.lib</code>.</div>
+
+<!-- ---- exe_reflective ---- -->
+<h3 id="exe_reflective">exe_reflective</h3>
+<p>In-memory загрузчик. Парсит PE-заголовки beacon DLL прямо из секции <code>.co2pay</code>,
+выделяет память через <code>VirtualAlloc</code>, маппит секции, фиксит базовые релокации
+(HIGHLOW / DIR64), резолвит импорты и вызывает <code>DllEntry</code>.</p>
+
+<div class="opsec">Ни один файл не записывается на диск. В файловой телеметрии
+(Sysmon Event 11, MFT) следов нет. Главный вектор обнаружения — сканирование
+памяти (RWX / unbacked executable pages).</div>
+
+<p>Этапы работы:</p>
+<pre>
+1. VirtualAlloc(preferred_base, SizeOfImage, RW)
+2. raw_copy(headers)
+3. raw_copy(sections[])
+4. apply_relocations(delta)
+5. resolve_imports(LoadLibraryA + GetProcAddress)
+6. VirtualProtect(sections[] -> RX / RW / R)
+7. call DllEntry(DLL_PROCESS_ATTACH)
+</pre>
+
+<!-- ---- exe_inject ---- -->
+<h3 id="exe_inject">exe_inject</h3>
+<p>Remote process DLL injection. Записывает beacon DLL во временный файл, запускает
+целевой процесс (по умолчанию <code>notepad.exe</code>) скрыто, затем инжектирует DLL
+через классическую связку:</p>
+
+<pre>
+VirtualAllocEx(target, ..., RW)
+WriteProcessMemory(target, dllpath)
+CreateRemoteThread(target, LoadLibraryW, dllpath)
+</pre>
+
+<p>После инжекта стаб удаляет временный файл и завершается. Beacon работает
+внутри целевого процесса.</p>
+
+<div class="note">Замените <code>TARGET</code> в исходнике на нужный процесс
+(svchost.exe, RuntimeBroker.exe и т.д.).</div>
+
+<!-- ---- exe_ppid ---- -->
+<h3 id="exe_ppid">exe_ppid</h3>
+<p>PPID-spoofing + injection. Находит <code>explorer.exe</code>, создаёт дочерний процесс
+(<code>notepad.exe</code>) с подменённым родителем через
+<code>PROC_THREAD_ATTRIBUTE_PARENT_PROCESS</code>, затем инжектирует beacon.</p>
+
+<p>В дереве процессов beacon выглядит как легитимный потомок <code>explorer.exe</code>,
+а не как дочерний процесс стаба.</p>
+
+<pre>
+OpenProcess(explorer.exe, PROCESS_CREATE_PROCESS)
+InitializeProcThreadAttributeList(1)
+UpdateProcThreadAttribute(PARENT_PROCESS, &hExplorer)
+CreateProcessW(notepad.exe, CREATE_SUSPENDED | EXTENDED_STARTUPINFO)
+ResumeThread -> WaitForInputIdle -> inject
+</pre>
+
+<div class="opsec">EDR-системы, проверяющие PID-цепочку (parent spoofing detection),
+могут сопоставить CreatorProcess (ETW) с заявленным ParentProcess и обнаружить подмену.</div>
+
+<!-- ---- dll_sideload ---- -->
+<h3 id="dll_sideload">dll_sideload</h3>
+<p>DLL для side-loading (DLL search-order hijacking). Переименуйте выходной файл
+в имя DLL, которую приложение загружает без полного пути (например,
+<code>version.dll</code>, <code>winmm.dll</code>, <code>dwrite.dll</code>),
+и поместите рядом с EXE приложения.</p>
+
+<p>Beacon загружается на отдельном потоке из <code>DllMain</code>
+(через <code>CreateThread</code> — чтобы избежать deadlock на loader lock).</p>
+
+<div class="note">Для проксирования экспортов реальной DLL добавьте forwarding
+stubs или <code>.def</code>-файл с директивами <code>#pragma comment(linker, "/export:...")</code>.</div>
+
+<!-- ====================================================================== -->
+<h2 id="build">Сборка (build_all.bat)</h2>
+
+<p>Скрипт <code>build_all.bat</code> компилирует каждый стаб для x64 и x86:</p>
+
+<pre>
+cd kit\artifact
+build_all.bat
+</pre>
+
+<p>Результат: <code>artifact\&lt;name&gt;.x64.exe</code> / <code>.x86.exe</code>
+(или <code>.dll</code> для стабов с префиксом <code>dll_</code>).</p>
+
+<h3>Флаги компилятора</h3>
+<table>
+<tr><th>Флаг</th><th>Назначение</th></tr>
+<tr><td><code>/Zl</code></td><td>Не записывать default-library запись в .obj</td></tr>
+<tr><td><code>/GS-</code></td><td>Отключить stack cookies (нет CRT __security_cookie)</td></tr>
+<tr><td><code>/O2</code></td><td>Оптимизация размера/скорости</td></tr>
+<tr><td><code>/TC</code></td><td>Компилировать как C</td></tr>
+</table>
+
+<h3>Флаги линкера</h3>
+<table>
+<tr><th>Флаг</th><th>Назначение</th></tr>
+<tr><td><code>/NODEFAULTLIB</code></td><td>Нет CRT</td></tr>
+<tr><td><code>/ENTRY:stub_main</code></td><td>Точка входа (или <code>/ENTRY:DllMain</code> для dll_*)</td></tr>
+<tr><td><code>/SUBSYSTEM:WINDOWS</code></td><td>GUI-подсистема (нет окна консоли)</td></tr>
+</table>
+
+<h3>Автоопределение типа</h3>
+<p>Стабы с префиксом <code>dll_</code> автоматически собираются как DLL (с <code>/DLL</code>,
+<code>/ENTRY:DllMain</code>). Все остальные — как EXE с <code>/ENTRY:stub_main</code>.</p>
+
+<!-- ====================================================================== -->
+<h2 id="writing">Как написать свой стаб</h2>
+
+<ol>
+<li>Создайте каталог <code>kit/artifact/&lt;name&gt;/</code>.</li>
+<li>Создайте файл <code>&lt;name&gt;/&lt;name&gt;.c</code>.</li>
+<li>Подключите общий заголовок:
+<pre>
+#include "../artifact.h"
+ART_DECLARE_PAYLOAD();
+</pre></li>
+<li>Реализуйте точку входа:
+<pre>
+void __stdcall stub_main(void) {
+    unsigned int sz = art_get_size(g_payload);
+    if (!sz) ExitProcess(1);
+
+    // ... ваша логика загрузки ...
+
+    ExitProcess(0);
+}
+</pre>
+Для DLL-стабов (имя начинается с <code>dll_</code>):
+<pre>
+BOOL WINAPI DllMain(HINSTANCE inst, DWORD reason, LPVOID reserved) {
+    // ...
+    return TRUE;
+}
+</pre></li>
+<li>Запустите <code>build_all.bat</code> — ваш стаб подхватится автоматически.</li>
+</ol>
+
+<h3>Ограничения (без CRT)</h3>
+<ul>
+<li>Нет <code>memcpy</code> / <code>memset</code> / <code>strlen</code> — используйте <code>art_memcpy</code> из заголовка или WinAPI.</li>
+<li>Нет <code>= { 0 }</code> для больших массивов на стеке (может вызвать implicit memset) — используйте <code>static</code> или <code>VirtualAlloc</code>.</li>
+<li><b>x86</b>: с <code>/Gs9999999</code> нет stack-probe. Локальные массивы &gt; 4 КБ = crash. Выделяйте на куче (<code>HeapAlloc</code>).</li>
+<li>Не используйте <code>ZeroMemory</code> / <code>CopyMemory</code> (это макросы на memset/memcpy).</li>
+<li>Доступны только <code>kernel32.lib</code> и <code>user32.lib</code>. Другие библиотеки подгружайте через <code>LoadLibraryW</code> + <code>GetProcAddress</code>.</li>
+</ul>
+
+</body></html>

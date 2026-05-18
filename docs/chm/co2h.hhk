@@ -1,0 +1,128 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML><HEAD>
+<meta name="GENERATOR" content="Microsoft HTML Help Workshop 4.1">
+<!-- Sitemap 1.0 -->
+</HEAD><BODY>
+<UL>
+    <LI><OBJECT type="text/sitemap"><param name="Name" value="Artifact Kit"><param name="Local" value="artifact-kit.html"></OBJECT>
+    <LI><OBJECT type="text/sitemap"><param name="Name" value="artifact.h"><param name="Local" value="artifact-kit.html#header"></OBJECT>
+    <LI><OBJECT type="text/sitemap"><param name="Name" value="ART_DECLARE_PAYLOAD"><param name="Local" value="artifact-kit.html#payload-section"></OBJECT>
+    <LI><OBJECT type="text/sitemap"><param name="Name" value="art_get_size"><param name="Local" value="artifact-kit.html#header"></OBJECT>
+    <LI><OBJECT type="text/sitemap"><param name="Name" value="art_load_beacon"><param name="Local" value="artifact-kit.html#header"></OBJECT>
+    <LI><OBJECT type="text/sitemap"><param name="Name" value="art_inject_remote"><param name="Local" value="artifact-kit.html#header"></OBJECT>
+    <LI><OBJECT type="text/sitemap"><param name="Name" value="artifact-gen"><param name="Local" value="artifact-gen.html"></OBJECT>
+    <LI><OBJECT type="text/sitemap"><param name="Name" value="BOF"><param name="Local" value="commands.html#bof"></OBJECT>
+    <LI><OBJECT type="text/sitemap"><param name="Name" value="bof"><param name="Local" value="commands.html#bof"></OBJECT>
+    <LI><OBJECT type="text/sitemap"><param name="Name" value="cat"><param name="Local" value="commands-linux.html#fs-linux"></OBJECT>
+    <LI><OBJECT type="text/sitemap"><param name="Name" value="cd"><param name="Local" value="commands.html#fs"></OBJECT>
+    <LI><OBJECT type="text/sitemap"><param name="Name" value="chmod"><param name="Local" value="commands-linux.html#fs-linux"></OBJECT>
+    <LI><OBJECT type="text/sitemap"><param name="Name" value="CLR hosting"><param name="Local" value="commands.html#execasm"></OBJECT>
+    <LI><OBJECT type="text/sitemap"><param name="Name" value="Console"><param name="Local" value="console.html"></OBJECT>
+    <LI><OBJECT type="text/sitemap"><param name="Name" value="cp"><param name="Local" value="commands.html#fs"></OBJECT>
+    <LI><OBJECT type="text/sitemap"><param name="Name" value="download"><param name="Local" value="commands.html#fs"></OBJECT>
+    <LI><OBJECT type="text/sitemap"><param name="Name" value="edge_creds"><param name="Local" value="commands.html#edge_creds"></OBJECT>
+    <LI><OBJECT type="text/sitemap"><param name="Name" value="Edge passwords"><param name="Local" value="commands.html#edge_creds"></OBJECT>
+    <LI><OBJECT type="text/sitemap"><param name="Name" value="execute-assembly"><param name="Local" value="commands.html#execasm"></OBJECT>
+    <LI><OBJECT type="text/sitemap"><param name="Name" value="env"><param name="Local" value="commands-linux.html#sysinfo"></OBJECT>
+    <LI><OBJECT type="text/sitemap"><param name="Name" value="exit"><param name="Local" value="commands.html#control"></OBJECT>
+    <LI><OBJECT type="text/sitemap"><param name="Name" value="Generate Certificates"><param name="Local" value="ui-overview.html#certs"></OBJECT>
+    <LI><OBJECT type="text/sitemap"><param name="Name" value="Generate Shellcode"><param name="Local" value="ui-overview.html#scelot"></OBJECT>
+    <LI><OBJECT type="text/sitemap"><param name="Name" value="getuid"><param name="Local" value="commands.html#tokens"></OBJECT>
+    <LI><OBJECT type="text/sitemap"><param name="Name" value="hostname"><param name="Local" value="commands-linux.html#sysinfo"></OBJECT>
+    <LI><OBJECT type="text/sitemap"><param name="Name" value="HTTPS listener"><param name="Local" value="listeners.html"></OBJECT>
+    <LI><OBJECT type="text/sitemap"><param name="Name" value="id"><param name="Local" value="commands-linux.html#sysinfo"></OBJECT>
+    <LI><OBJECT type="text/sitemap"><param name="Name" value="ifconfig"><param name="Local" value="commands-linux.html#sysinfo"></OBJECT>
+    <LI><OBJECT type="text/sitemap"><param name="Name" value="inject"><param name="Local" value="commands.html#inject"></OBJECT>
+    <LI><OBJECT type="text/sitemap"><param name="Name" value="inject_apc"><param name="Local" value="commands.html#inject"></OBJECT>
+    <LI><OBJECT type="text/sitemap"><param name="Name" value="inject_dll"><param name="Local" value="commands.html#inject_dll"></OBJECT>
+    <LI><OBJECT type="text/sitemap"><param name="Name" value="inject_less"><param name="Local" value="commands.html#inject"></OBJECT>
+    <LI><OBJECT type="text/sitemap"><param name="Name" value="mimikatz"><param name="Local" value="commands.html#inject_dll"></OBJECT>
+    <LI><OBJECT type="text/sitemap"><param name="Name" value="powerkatz"><param name="Local" value="commands.html#inject_dll"></OBJECT>
+    <LI><OBJECT type="text/sitemap"><param name="Name" value="reflective DLL"><param name="Local" value="commands.html#inject_dll"></OBJECT>
+    <LI><OBJECT type="text/sitemap"><param name="Name" value="Co2H_ReflectiveLoader"><param name="Local" value="commands.html#inject_dll"></OBJECT>
+    <LI><OBJECT type="text/sitemap"><param name="Name" value="kill"><param name="Local" value="commands-linux.html#exec-linux"></OBJECT>
+    <LI><OBJECT type="text/sitemap"><param name="Name" value="Linux beacon"><param name="Local" value="commands-linux.html"></OBJECT>
+    <LI><OBJECT type="text/sitemap"><param name="Name" value="Listener key"><param name="Local" value="teamserver.html"></OBJECT>
+    <LI><OBJECT type="text/sitemap"><param name="Name" value="Listeners tab"><param name="Local" value="ui-overview.html"></OBJECT>
+    <LI><OBJECT type="text/sitemap"><param name="Name" value="ls"><param name="Local" value="commands.html#fs"></OBJECT>
+    <LI><OBJECT type="text/sitemap"><param name="Name" value="make_token"><param name="Local" value="commands.html#tokens"></OBJECT>
+    <LI><OBJECT type="text/sitemap"><param name="Name" value="Malleable profile"><param name="Local" value="profiles.html"></OBJECT>
+    <LI><OBJECT type="text/sitemap"><param name="Name" value="mkdir"><param name="Local" value="commands-linux.html#fs-linux"></OBJECT>
+    <LI><OBJECT type="text/sitemap"><param name="Name" value="migrate"><param name="Local" value="commands.html#migrate"></OBJECT>
+    <LI><OBJECT type="text/sitemap"><param name="Name" value="Миграция beacon'а"><param name="Local" value="commands.html#migrate"></OBJECT>
+    <LI><OBJECT type="text/sitemap"><param name="Name" value="modstomp"><param name="Local" value="commands.html#inject"></OBJECT>
+    <LI><OBJECT type="text/sitemap"><param name="Name" value="mTLS"><param name="Local" value="teamserver.html"></OBJECT>
+    <LI><OBJECT type="text/sitemap"><param name="Name" value="mTLS-сертификаты, генерация"><param name="Local" value="ui-overview.html#certs"></OBJECT>
+    <LI><OBJECT type="text/sitemap"><param name="Name" value="mv"><param name="Local" value="commands.html#fs"></OBJECT>
+    <LI><OBJECT type="text/sitemap"><param name="Name" value="Pivot listener"><param name="Local" value="listeners.html"></OBJECT>
+    <LI><OBJECT type="text/sitemap"><param name="Name" value="privesc_plasma"><param name="Local" value="commands.html#privesc_plasma"></OBJECT>
+    <LI><OBJECT type="text/sitemap"><param name="Name" value="CVE-2020-17103"><param name="Local" value="commands.html#privesc_plasma"></OBJECT>
+    <LI><OBJECT type="text/sitemap"><param name="Name" value="CfAbortOperation"><param name="Local" value="commands.html#privesc_plasma"></OBJECT>
+    <LI><OBJECT type="text/sitemap"><param name="Name" value="privesc_root"><param name="Local" value="commands-linux.html#privesc-linux"></OBJECT>
+    <LI><OBJECT type="text/sitemap"><param name="Name" value="Copy Fail (CVE-2026-31431)"><param name="Local" value="commands-linux.html#privesc-copyfail"></OBJECT>
+    <LI><OBJECT type="text/sitemap"><param name="Name" value="copyfail"><param name="Local" value="commands-linux.html#privesc-copyfail"></OBJECT>
+    <LI><OBJECT type="text/sitemap"><param name="Name" value="copyfail_passwd"><param name="Local" value="commands-linux.html#privesc-copyfail"></OBJECT>
+    <LI><OBJECT type="text/sitemap"><param name="Name" value="CVE-2026-31431"><param name="Local" value="commands-linux.html#privesc-copyfail"></OBJECT>
+    <LI><OBJECT type="text/sitemap"><param name="Name" value="Dirty Pipe (CVE-2022-0847)"><param name="Local" value="commands-linux.html#privesc-linux"></OBJECT>
+    <LI><OBJECT type="text/sitemap"><param name="Name" value="authencesn"><param name="Local" value="commands-linux.html#privesc-copyfail"></OBJECT>
+    <LI><OBJECT type="text/sitemap"><param name="Name" value="Plugin API"><param name="Local" value="plugin-api.html"></OBJECT>
+    <LI><OBJECT type="text/sitemap"><param name="Name" value="PluginContext"><param name="Local" value="plugin-api.html#context"></OBJECT>
+    <LI><OBJECT type="text/sitemap"><param name="Name" value="IClientPlugin"><param name="Local" value="plugin-api.html#interface"></OBJECT>
+    <LI><OBJECT type="text/sitemap"><param name="Name" value="co2h_plugin_create"><param name="Local" value="plugin-api.html#structure"></OBJECT>
+    <LI><OBJECT type="text/sitemap"><param name="Name" value="sendTask"><param name="Local" value="plugin-api.html#ctx-tasks"></OBJECT>
+    <LI><OBJECT type="text/sitemap"><param name="Name" value="registerCommand"><param name="Local" value="plugin-api.html#ctx-commands"></OBJECT>
+    <LI><OBJECT type="text/sitemap"><param name="Name" value="addPluginButton"><param name="Local" value="plugin-api.html#ctx-tabs"></OBJECT>
+    <LI><OBJECT type="text/sitemap"><param name="Name" value="iconFromSvg"><param name="Local" value="plugin-api.html#icons"></OBJECT>
+    <LI><OBJECT type="text/sitemap"><param name="Name" value="Иконка плагина (SVG)"><param name="Local" value="plugin-api.html#icons"></OBJECT>
+    <LI><OBJECT type="text/sitemap"><param name="Name" value="QSvgRenderer"><param name="Local" value="plugin-api.html#icons"></OBJECT>
+    <LI><OBJECT type="text/sitemap"><param name="Name" value="Processes tab"><param name="Local" value="ui-overview.html#processbrowser"></OBJECT>
+    <LI><OBJECT type="text/sitemap"><param name="Name" value="Обозреватель процессов"><param name="Local" value="ui-overview.html#processbrowser"></OBJECT>
+    <LI><OBJECT type="text/sitemap"><param name="Name" value="ps"><param name="Local" value="commands.html#exec"></OBJECT>
+    <LI><OBJECT type="text/sitemap"><param name="Name" value="pwd"><param name="Local" value="commands.html#fs"></OBJECT>
+    <LI><OBJECT type="text/sitemap"><param name="Name" value="rev2self"><param name="Local" value="commands.html#tokens"></OBJECT>
+    <LI><OBJECT type="text/sitemap"><param name="Name" value="rm"><param name="Local" value="commands.html#fs"></OBJECT>
+    <LI><OBJECT type="text/sitemap"><param name="Name" value="run"><param name="Local" value="commands.html#exec"></OBJECT>
+    <LI><OBJECT type="text/sitemap"><param name="Name" value="Sessions tab"><param name="Local" value="ui-overview.html"></OBJECT>
+    <LI><OBJECT type="text/sitemap"><param name="Name" value="shell"><param name="Local" value="commands.html#exec"></OBJECT>
+    <LI><OBJECT type="text/sitemap"><param name="Name" value="sleep"><param name="Local" value="commands.html#control"></OBJECT>
+    <LI><OBJECT type="text/sitemap"><param name="Name" value="SOCKS5 listener"><param name="Local" value="listeners.html"></OBJECT>
+    <LI><OBJECT type="text/sitemap"><param name="Name" value="spawnto"><param name="Local" value="commands.html#inject"></OBJECT>
+    <LI><OBJECT type="text/sitemap"><param name="Name" value="steal_token"><param name="Local" value="commands.html#tokens"></OBJECT>
+    <LI><OBJECT type="text/sitemap"><param name="Name" value="tcp_pivot"><param name="Local" value="commands.html#pivot"></OBJECT>
+    <LI><OBJECT type="text/sitemap"><param name="Name" value="Teamserver"><param name="Local" value="teamserver.html"></OBJECT>
+    <LI><OBJECT type="text/sitemap"><param name="Name" value="upload"><param name="Local" value="commands.html#fs"></OBJECT>
+    <LI><OBJECT type="text/sitemap"><param name="Name" value="Сертификаты mTLS"><param name="Local" value="ui-overview.html#certs"></OBJECT>
+    <LI><OBJECT type="text/sitemap"><param name="Name" value="Tools menu"><param name="Local" value="ui-overview.html#certs"></OBJECT>
+    <LI><OBJECT type="text/sitemap"><param name="Name" value="X509 generation"><param name="Local" value="ui-overview.html#certs"></OBJECT>
+    <LI><OBJECT type="text/sitemap"><param name="Name" value="scelot"><param name="Local" value="ui-overview.html#scelot"></OBJECT>
+    <LI><OBJECT type="text/sitemap"><param name="Name" value="Шеллкод, генерация из PE"><param name="Local" value="ui-overview.html#scelot"></OBJECT>
+    <LI><OBJECT type="text/sitemap"><param name="Name" value="PE → shellcode"><param name="Local" value="ui-overview.html#scelot"></OBJECT>
+    <LI><OBJECT type="text/sitemap"><param name="Name" value="screenshot"><param name="Local" value="commands-linux.html#screenshot-linux"></OBJECT>
+    <LI><OBJECT type="text/sitemap"><param name="Name" value="Target OS"><param name="Local" value="ui-overview.html#artifact-dialog"></OBJECT>
+    <LI><OBJECT type="text/sitemap"><param name="Name" value="whoami"><param name="Local" value="commands-linux.html#sysinfo"></OBJECT>
+    <LI><OBJECT type="text/sitemap"><param name="Name" value="side-loading"><param name="Local" value="artifact-kit.html#dll_sideload"></OBJECT>
+    <LI><OBJECT type="text/sitemap"><param name="Name" value="DLL hijack"><param name="Local" value="artifact-kit.html#dll_sideload"></OBJECT>
+    <LI><OBJECT type="text/sitemap"><param name="Name" value="reflective loader (artifact)"><param name="Local" value="artifact-kit.html#exe_reflective"></OBJECT>
+    <LI><OBJECT type="text/sitemap"><param name="Name" value="exe_svc"><param name="Local" value="artifact-kit.html#exe_svc"></OBJECT>
+    <LI><OBJECT type="text/sitemap"><param name="Name" value="exe_reflective"><param name="Local" value="artifact-kit.html#exe_reflective"></OBJECT>
+    <LI><OBJECT type="text/sitemap"><param name="Name" value="exe_inject"><param name="Local" value="artifact-kit.html#exe_inject"></OBJECT>
+    <LI><OBJECT type="text/sitemap"><param name="Name" value="exe_ppid"><param name="Local" value="artifact-kit.html#exe_ppid"></OBJECT>
+    <LI><OBJECT type="text/sitemap"><param name="Name" value="dll_sideload"><param name="Local" value="artifact-kit.html#dll_sideload"></OBJECT>
+    <LI><OBJECT type="text/sitemap"><param name="Name" value="stub_main"><param name="Local" value="artifact-kit.html#writing"></OBJECT>
+    <LI><OBJECT type="text/sitemap"><param name="Name" value=".co2pay"><param name="Local" value="artifact-kit.html#payload-section"></OBJECT>
+    <LI><OBJECT type="text/sitemap"><param name="Name" value="Sleep Mask Kit"><param name="Local" value="sleepmask-kit.html"></OBJECT>
+    <LI><OBJECT type="text/sitemap"><param name="Name" value="SleepMaskCtx"><param name="Local" value="sleepmask-kit.html#api"></OBJECT>
+    <LI><OBJECT type="text/sitemap"><param name="Name" value="sleep_mask_entry"><param name="Local" value="sleepmask-kit.html#writing"></OBJECT>
+    <LI><OBJECT type="text/sitemap"><param name="Name" value="PPID spoofing"><param name="Local" value="artifact-kit.html#exe_ppid"></OBJECT>
+    <LI><OBJECT type="text/sitemap"><param name="Name" value="Process Inject Kit"><param name="Local" value="processinject-kit.html"></OBJECT>
+    <LI><OBJECT type="text/sitemap"><param name="Name" value="InjectCtx"><param name="Local" value="processinject-kit.html#api"></OBJECT>
+    <LI><OBJECT type="text/sitemap"><param name="Name" value="process_inject_entry"><param name="Local" value="processinject-kit.html#writing"></OBJECT>
+    <LI><OBJECT type="text/sitemap"><param name="Name" value="kit_inject"><param name="Local" value="processinject-kit.html#integration"></OBJECT>
+    <LI><OBJECT type="text/sitemap"><param name="Name" value="section_map"><param name="Local" value="processinject-kit.html#variants"></OBJECT>
+    <LI><OBJECT type="text/sitemap"><param name="Name" value="thread_hijack"><param name="Local" value="processinject-kit.html#variants"></OBJECT>
+    <LI><OBJECT type="text/sitemap"><param name="Name" value="early_bird"><param name="Local" value="processinject-kit.html#variants"></OBJECT>
+    <LI><OBJECT type="text/sitemap"><param name="Name" value="poolparty"><param name="Local" value="processinject-kit.html#variants"></OBJECT>
+    <LI><OBJECT type="text/sitemap"><param name="Name" value="module_stomp"><param name="Local" value="processinject-kit.html#variants"></OBJECT>
+    <LI><OBJECT type="text/sitemap"><param name="Name" value="phantom_hollow"><param name="Local" value="processinject-kit.html#variants"></OBJECT>
+</UL>
+</BODY></HTML>

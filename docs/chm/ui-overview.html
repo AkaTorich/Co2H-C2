@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="ru"><head>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<title>Интерфейс оператора</title>
+<link rel="stylesheet" href="style.css">
+</head><body>
+<nav class="crumbs"><a href="index.html">Главная</a> &raquo; Интерфейс</nav>
+
+<h1>Интерфейс оператора</h1>
+
+<p>Главное окно состоит из пяти логических частей:</p>
+<ol>
+<li>Меню (File / View / Help)</li>
+<li>Панель инструментов (toolbar)</li>
+<li>Панель плагинов (иконки загруженных плагинов)</li>
+<li>Вкладки: <b>Sessions</b> / <b>Listeners</b> / <b>Graph</b> / <b>Files</b> / <b>Processes</b> / <b>Downloads</b> / <b>Credentials</b> / <b>Chat</b> / <b>Logs</b></li>
+<li>Консоль beacon'а (внизу, разделитель сверху)</li>
+</ol>
+
+<h2 id="menu">Меню</h2>
+<table>
+<tr><th>Меню</th><th>Пункт</th><th>Действие</th></tr>
+<tr><td>File</td><td>Exit (<kbd>Ctrl</kbd>+<kbd>Q</kbd>)</td><td>Закрыть клиент. Если запущен teamserver — корректно остановить.</td></tr>
+<tr><td>View</td><td>Toggle theme</td><td>Переключение тёмная / светлая.</td></tr>
+<tr><td>Admin</td><td>Manage operators</td><td>Управление операторами (доступно только для роли admin после авторизации).</td></tr>
+<tr><td>Tools</td><td>Generate Certificates&hellip;</td><td>Сгенерировать комплект mTLS-сертификатов (ca, server, listener, operator) в папку <code>certs/</code>. Подробнее — <a href="#certs">ниже</a>.</td></tr>
+<tr><td>Tools</td><td>Generate Shellcode (scelot)&hellip;</td><td>Открыть диалог преобразования PE / .NET-сборки в позиционно-независимый шеллкод. Подробнее — <a href="#scelot">ниже</a>.</td></tr>
+<tr><td>Help</td><td>About</td><td>О программе.</td></tr>
+<tr><td>Help</td><td>Manual</td><td>Открыть это руководство в отдельной вкладке.</td></tr>
+</table>
+
+<h2 id="certs">Генерация сертификатов</h2>
+<p>Меню <b>Tools &rarr; Generate Certificates&hellip;</b> — регенерация всего комплекта
+mTLS-сертификатов прямо из клиента, никаких внешних утилит ставить не нужно.</p>
+
+<p>Что создаётся в папке <code>certs/</code> рядом с исполняемым файлом:</p>
+<table>
+<tr><th>Файл</th><th>Назначение</th></tr>
+<tr><td><code>ca.crt</code> / <code>ca.key</code></td><td>Самоподписанный корневой УЦ. Trust anchor для обеих сторон mTLS.</td></tr>
+<tr><td><code>server.crt</code> / <code>server.key</code></td><td>Сертификат teamserver'а. Подписан CA.</td></tr>
+<tr><td><code>listener.crt</code> / <code>listener.key</code></td><td>Сертификат HTTPS-listener'а. Подписан CA.</td></tr>
+<tr><td><code>operator.crt</code> / <code>operator.key</code></td><td>Клиентский сертификат оператора. Подписан CA. Этот файл подставляется в окно логина.</td></tr>
+</table>
+
+<p>Каждый созданный сертификат проверяется на корректность цепочки до записи на диск.
+Если проверка не проходит — генерация прерывается, существующие файлы не
+перезаписываются, во вкладке Logs выводится сообщение об ошибке.</p>
+
+<div class="warning">
+Если сертификаты в <code>certs/</code> уже есть — клиент спросит подтверждение перезаписи.
+Если teamserver запущен в момент генерации — он держит старые сертификаты в памяти,
+поэтому после успешной генерации клиент предложит автоматически его перезапустить.
+Без перезапуска mTLS-рукопожатие будет отвергнуто с ошибкой неизвестного УЦ.
+</div>
+
+<div class="note">
+Генерация занимает около 30 секунд и идёт в фоне — UI не блокируется,
+прогресс по шагам пишется во вкладку Logs.
+</div>
+
+<h2 id="scelot">Генерация шеллкода</h2>
+<p>Меню <b>Tools &rarr; Generate Shellcode (scelot)&hellip;</b> — диалог преобразования
+исполняемого файла или .NET-сборки в позиционно-независимый шеллкод.</p>
+
+<table>
+<tr><th>Поле</th><th>Назначение</th></tr>
+<tr><td><b>Input PE</b></td><td>Путь к исходному <code>.exe</code> / <code>.dll</code> на машине оператора. Кнопка <b>Browse&hellip;</b> открывает диалог выбора файла.</td></tr>
+<tr><td><b>Output .bin</b></td><td>Куда сохранить готовый шеллкод. По умолчанию подставляется имя входного файла с расширением <code>.bin</code>.</td></tr>
+<tr><td><b>Architecture</b></td><td><code>auto</code> (по входному PE), <code>x64</code> или <code>x86</code>.</td></tr>
+<tr><td><b>Exit mode</b></td><td>Поведение после завершения нагрузки: <code>exit</code> — завершить процесс, <code>thread</code> — завершить поток, <code>return</code> — вернуть управление.</td></tr>
+<tr><td><b>Args</b></td><td>Аргументы командной строки, передаваемые нагрузке.</td></tr>
+<tr><td><b>Export (DLL)</b></td><td>Имя экспорта DLL для вызова после <code>DllMain</code>.</td></tr>
+<tr><td><b>.NET class</b> / <b>.NET method</b></td><td>Класс и метод для .NET-сборок (<code>Namespace.Class</code>).</td></tr>
+<tr><td><b>Also emit BOF stager (.o)</b></td><td>Дополнительно собрать BOF-стейджер (COFF <code>.o</code>) рядом с <code>.bin</code>. В нём зашит сгенерированный шеллкод; при загрузке через <code>bof &lt;файл.o&gt;</code> со стороны другого beacon'а он аллоцирует RWX-память, копирует туда шеллкод и запускает его в новом потоке. Внешний компилятор не требуется — используется заранее скомпилированный шаблон, который scelot патчит на лету.</td></tr>
+</table>
+
+<p>После нажатия <b>Generate</b> вывод <code>scelot.exe</code> отображается в нижнем
+окне лога диалога.</p>
+
+<h2 id="toolbar">Панель инструментов</h2>
+<table>
+<tr><th>Кнопка</th><th>Действие</th></tr>
+<tr><td>Start Server</td><td>Запустить локальный <code>teamserver.exe</code> с <code>configs/srv.toml</code>. Лог сразу пишется во вкладку Logs.</td></tr>
+<tr><td>Stop Server</td><td>Корректно остановить teamserver (terminate &rarr; через 3&nbsp;с kill).</td></tr>
+<tr><td>Connect</td><td>Открыть диалог логина и подключиться к teamserver'у (mTLS).</td></tr>
+<tr><td>Refresh</td><td>Запросить актуальные списки sessions / listeners.</td></tr>
+<tr><td>New listener</td><td>Открыть диалог создания listener'а: выбор типа (HTTPS / TCP / SMB / Pivot), ввод параметров, вызов RPC на teamserver'е.</td></tr>
+<tr><td>Generate artifact</td><td>Сгенерировать beacon-payload с встроенным ключом и адресом выбранного listener'а. См. <a href="#artifact-dialog">диалог генерации</a>.</td></tr>
+<tr><td>Toggle theme</td><td>То же, что View &rarr; Toggle theme.</td></tr>
+</table>
+
+<div class="note">
+Опрос sessions/listeners идёт автоматически каждые 5 секунд.
+</div>
+
+<h3 id="artifact-dialog">Диалог генерации артефакта</h3>
+<p>Открывается кнопкой <b>Generate artifact</b> на панели инструментов или
+из контекстного меню listener'а.</p>
+<table>
+<tr><th>Поле</th><th>Описание</th></tr>
+<tr><td><b>Listener</b></td><td>Выбор listener'а из списка. Ключ и параметры подставляются автоматически.</td></tr>
+<tr><td><b>Target OS</b></td><td>Целевая операционная система: <code>Windows</code> или <code>Linux</code>.
+    Влияет на доступные форматы и шаблон beacon'а.</td></tr>
+<tr><td><b>Format</b></td><td>Формат артефакта. Для Windows: <code>EXE</code> или <code>DLL</code>.
+    При выборе Linux поле скрыто &mdash; всегда ELF.</td></tr>
+<tr><td><b>Architecture</b></td><td>Архитектура: <code>x64</code> или <code>x86</code>.
+    При выборе Linux поле скрыто &mdash; только x64.</td></tr>
+<tr><td><b>Fallback C2</b></td><td>Резервные C2-каналы (до 4 штук, по одному на строку). Формат: <code>host:port</code> или <code>host:port:uri</code>.
+    При потере связи с основным каналом beacon автоматически переключается на следующий.
+    Подробнее — <a href="listeners.html#fallback">Fallback C2</a>.</td></tr>
+<tr><td><b>Output</b></td><td>Путь сохранения сгенерированного файла.</td></tr>
+</table>
+
+<h4>Поведение при выборе Target OS</h4>
+<table>
+<tr><th></th><th>Windows</th><th>Linux</th></tr>
+<tr><td><b>Шаблон</b></td><td><code>beacon64.exe</code> / <code>beacon64.dll</code> /
+    <code>beacon32.exe</code> / <code>beacon32.dll</code></td>
+    <td><code>beacon-linux64</code> (ELF) или <code>beacon-linux64.so</code></td></tr>
+<tr><td><b>Format</b></td><td>EXE / DLL</td><td>скрыт (ELF)</td></tr>
+<tr><td><b>Architecture</b></td><td>x64 / x86</td><td>скрыт (x64)</td></tr>
+<tr><td><b>Расширение</b></td><td><code>.exe</code> / <code>.dll</code></td>
+    <td>без расширения</td></tr>
+</table>
+
+<div class="note">
+Логика патчинга в <code>artifact-gen</code> одинакова для PE и ELF &mdash;
+сентинел (32 нулевых байта + UTF-16LE <code>"127.0.0.1"</code>) ищется
+одинаково в обоих форматах. Аргумент <code>--os linux</code> передаётся
+для выбора шаблонного бинарника.
+</div>
+
+<h2 id="plugins-bar">Панель плагинов</h2>
+<p>Между панелью инструментов и основными вкладками расположена панель плагинов —
+ряд иконок загруженных плагинов. Каждая иконка работает как переключатель:</p>
+<ul>
+<li><b>Первый клик</b> — открывает интерфейс плагина (основные вкладки скрываются).</li>
+<li><b>Повторный клик по той же иконке</b> — скрывает плагин и возвращает вкладки клиента.</li>
+</ul>
+<p>Одновременно может быть активен только один плагин. Клик по иконке другого плагина
+переключает на него, предыдущий скрывается автоматически.</p>
+
+<h2 id="sessions">Вкладка Sessions</h2>
+<p>Таблица активных beacon'ов. Колонки:</p>
+<table>
+<tr><th>Колонка</th><th>Описание</th></tr>
+<tr><td><b>Beacon ID</b></td><td>Hex-идентификатор со значком сессии.</td></tr>
+<tr><td><b>Host</b></td><td>Имя хоста цели.</td></tr>
+<tr><td><b>IP</b></td><td>Внутренний IP-адрес.</td></tr>
+<tr><td><b>User</b></td><td>Имя пользователя.</td></tr>
+<tr><td><b>PID</b></td><td>Идентификатор процесса beacon'а.</td></tr>
+<tr><td><b>Arch</b></td><td>Архитектура: <code>x64</code> или <code>x86</code>.</td></tr>
+<tr><td><b>OS</b></td><td>Операционная система: <code>Windows</code> или <code>Linux</code>.</td></tr>
+<tr><td><b>Listener</b></td><td>Имя listener'а, через который подключён beacon.</td></tr>
+<tr><td><b>First Seen</b></td><td>Время первого чек-ина (HH:MM:SS).</td></tr>
+<tr><td><b>Last Seen</b></td><td>Время последнего чек-ина (HH:MM:SS).</td></tr>
+</table>
+<p><b>Двойной клик</b> по строке — beacon становится «активным» в нижней консоли.</p>
+
+<h3>Контекстное меню (правый клик по строке)</h3>
+<table>
+<tr><th>Пункт</th><th>Действие</th></tr>
+<tr><td>Interact</td><td>Открыть beacon в консоли (то же что двойной клик).</td></tr>
+<tr><td>Copy beacon ID</td><td>Скопировать hex-идентификатор beacon'а в буфер.</td></tr>
+<tr><td>Copy hostname</td><td>Скопировать имя хоста.</td></tr>
+<tr><td>Copy IP address</td><td>Скопировать IP-адрес цели (столбец IP).</td></tr>
+<tr><td>Copy username</td><td>Скопировать имя пользователя.</td></tr>
+<tr><td>Start TCP pivot (fast SOCKS)</td><td>Диалог: создать pivot-listener на teamserver'е и отправить
+    beacon'у команду <code>tcp_pivot</code> для обратного подключения.</td></tr>
+<tr><td>Start relay port (chain pivot)</td><td>Открыть на beacon'е relay-порт для подключения
+    дочерних beacon'ов (цепочка pivot → pivot). Диалог: ввод порта.</td></tr>
+<tr><td>Generate relay child beacon</td><td>Открыть диалог генерации дочернего артефакта,
+    настроенного подключаться через данный beacon. Доступен выбор Target OS (Windows/Linux),
+    Format и Architecture.</td></tr>
+<tr><td>Start SOCKS5 listener (polling)</td><td>Диалог: открыть локальный SOCKS5-порт,
+    туннелирующий трафик через beacon.</td></tr>
+<tr><td>Start Reverse Port Forward</td><td>Teamserver открывает TCP-порт (bind host / bind port);
+    при входящем подключении трафик проходит через beacon к указанному rhost:rport.</td></tr>
+</table>
+
+<h2 id="listeners">Вкладка Listeners</h2>
+<p>Список запущенных listener'ов teamserver'а: имя, тип (https/tcp/smb/pivot/socks5), адрес, порт.
+Создание listener'ов — через кнопку <b>New listener</b> на панели инструментов или RPC напрямую.</p>
+
+<h2 id="graph">Вкладка Graph</h2>
+<p>Визуальная карта инфраструктуры в реальном времени. Обновляется автоматически
+при появлении, исчезновении или изменении beacon'ов и listener'ов.</p>
+
+<h3>Топология</h3>
+<p>Узлы расположены в трёх уровнях:</p>
+<table>
+<tr><th>Узел</th><th>Цвет</th><th>Описание</th></tr>
+<tr><td><b>teamserver</b></td><td style="color:#3b82f6">синий</td><td>Центральный узел. Всегда присутствует.</td></tr>
+<tr><td><b>Listener</b></td><td style="color:#22d3ee">голубой</td><td>По кругу вокруг teamserver'а. Tooltip: имя, тип, адрес.</td></tr>
+<tr><td><b>Beacon</b></td><td style="color:#10b981">зелёный</td><td>Дуга 120° вокруг своего listener'а. Tooltip: Beacon ID, хост, пользователь.</td></tr>
+<tr><td><b>Дочерний beacon</b> (pivot)</td><td style="color:#f59e0b">янтарный</td><td>Орбита 90° вокруг родительского beacon'а, а не listener'а.</td></tr>
+</table>
+<p>Линии listener→beacon — серый пунктир; линии parent→child (pivot) — янтарный точечный пунктир.</p>
+
+<h3>Навигация</h3>
+<table>
+<tr><th>Действие</th><th>Результат</th></tr>
+<tr><td>Колесо мыши</td><td>Зум относительно курсора (×1.15 за шаг).</td></tr>
+<tr><td>ЛКМ на пустом фоне + перетащить</td><td>Панорамирование.</td></tr>
+<tr><td>Средняя кнопка + перетащить</td><td>Панорамирование.</td></tr>
+<tr><td>ЛКМ на узел + перетащить</td><td>Переместить узел. Рёбра следуют за ним. Позиция сохраняется при обновлении графа.</td></tr>
+<tr><td>Кнопка <b>Reset</b> (панель)</td><td>Сбросить все сохранённые позиции, разместить узлы по умолчанию.</td></tr>
+</table>
+
+<h3>Двойной клик</h3>
+<p>Двойной левый клик по узлу <b>beacon'а</b> — открыть его в консоли (аналог <i>Interact</i> во вкладке Sessions).</p>
+
+<h3>Контекстное меню — Teamserver</h3>
+<table>
+<tr><th>Пункт</th><th>Действие</th></tr>
+<tr><td>New listener</td><td>Открыть диалог создания listener'а (то же, что кнопка на тулбаре).</td></tr>
+<tr><td>Stop server</td><td>Остановить teamserver.</td></tr>
+</table>
+
+<h3>Контекстное меню — Listener</h3>
+<table>
+<tr><th>Пункт</th><th>Действие</th></tr>
+<tr><td>Generate artifact for this listener</td><td>Открыть диалог генерации артефакта с предвыбранным listener'ом.</td></tr>
+<tr><td>Stop listener</td><td>Удалить listener на teamserver'е.</td></tr>
+</table>
+
+<h3>Контекстное меню — Beacon</h3>
+<table>
+<tr><th>Пункт</th><th>Действие</th></tr>
+<tr><td>Interact</td><td>Открыть beacon в консоли.</td></tr>
+<tr><td>Rename…</td><td>Задать отображаемое имя узла в графе. Псевдоним хранится только в клиенте; Beacon ID не меняется. Пустое значение — вернуть имя по умолчанию (<code>ID·user@host</code>).</td></tr>
+<tr><td>Copy beacon ID</td><td>Скопировать полный hex-идентификатор.</td></tr>
+<tr><td>Copy hostname</td><td>Скопировать имя хоста цели.</td></tr>
+<tr><td>Copy IP address</td><td>Скопировать IP-адрес цели.</td></tr>
+<tr><td>Copy username</td><td>Скопировать имя пользователя.</td></tr>
+<tr><td>Start TCP pivot (fast SOCKS)</td><td>Диалог: bind host, SOCKS-порт, pivot-порт. Создаёт pivot-listener на teamserver'е и отправляет beacon'у команду <code>tcp_pivot</code>.</td></tr>
+<tr><td>Start relay port (chain pivot)</td><td>Открыть на beacon'е relay-порт для подключения дочерних beacon'ов (цепочка pivot → pivot).</td></tr>
+<tr><td>Generate relay child beacon</td><td>Открыть диалог генерации дочернего артефакта, настроенного подключаться через данный beacon.</td></tr>
+<tr><td>Start SOCKS5 listener (polling)</td><td>Открыть локальный SOCKS5-прокси, туннелирующий трафик через beacon. Диалог: bind host, bind port.</td></tr>
+<tr><td>Start Reverse Port Forward</td><td>Teamserver открывает TCP-порт (bind host / bind port); при входящем подключении трафик проходит через beacon к указанному rhost:rport.</td></tr>
+</table>
+
+<h2 id="downloads">Вкладка Downloads</h2>
+<p>Список файлов, скачанных с целей командой <code>download</code>.
+Показывает имя файла, размер, beacon-источник, время получения.
+Двойной клик — сохранить локально.</p>
+
+<h2 id="credentials">Вкладка Credentials</h2>
+<p>Общий склад учётных данных всех операторов. Хранится на teamserver'е,
+изменения автоматически рассылаются всем подключённым операторам.</p>
+<table>
+<tr><th>Колонка</th><th>Описание</th></tr>
+<tr><td>User / Domain</td><td>Имя учётной записи</td></tr>
+<tr><td>Kind</td><td><span style="color:#ef4444">password</span> / <span style="color:#f59e0b">hash</span> / <span style="color:#8b5cf6">ticket</span> / <span style="color:#3b82f6">identity</span></td></tr>
+<tr><td>Secret</td><td>Замаскирован в таблице; полный текст — в tooltip</td></tr>
+<tr><td>Host / Source / By</td><td>Откуда получен</td></tr>
+</table>
+<p>Кнопки: <b>Refresh</b> — запросить список с сервера; <b>Add</b> — добавить вручную;
+<b>Delete</b> — удалить выбранную строку.<br>
+<code>getuid</code> автоматически добавляет запись kind=identity при каждом выполнении.</p>
+
+<h2 id="chat">Вкладка Chat</h2>
+<p>Командный чат: все операторы в одном канале. При получении нового сообщения
+в неактивной вкладке появляется маркер <code>&bull;</code> в заголовке вкладки.</p>
+
+<h2 id="logs">Вкладка Logs</h2>
+<p>Stdout/stderr запущенного teamserver'а + локальные сообщения клиента
+(подключение, генерация артефакта и т.&nbsp;п.). При новых строках в фоне
+заголовок вкладки помечается маркером <code>&bull;</code>.</p>
+
+<h2 id="filebrowser">Файловый менеджер</h2>
+<p>Открывается при двойном клике по сессии в таблице Sessions
+(вместе с консолью). Показывает удалённую файловую систему выбранного beacon'а.</p>
+
+<h3>Панель навигации</h3>
+<table>
+<tr><th>Элемент</th><th>Описание</th></tr>
+<tr><td><b>←</b> Back</td><td>Назад по истории посещённых каталогов.</td></tr>
+<tr><td><b>→</b> Forward</td><td>Вперёд по истории.</td></tr>
+<tr><td><b>↑</b> Up</td><td>Перейти в родительский каталог.</td></tr>
+<tr><td><b>⟳</b> Refresh</td><td>Перечитать содержимое текущего каталога.</td></tr>
+<tr><td>Строка пути</td><td>Ввести путь вручную и нажать <kbd>Enter</kbd>.</td></tr>
+</table>
+
+<h3>Панель действий</h3>
+<table>
+<tr><th>Кнопка</th><th>Описание</th></tr>
+<tr><td>Download</td><td>Скачать выбранный файл на машину оператора (диалог выбора пути сохранения). Недоступна для каталогов.</td></tr>
+<tr><td>Upload</td><td>Загрузить локальный файл в текущий каталог на цели.</td></tr>
+<tr><td>Delete</td><td>Удалить выбранный файл или каталог на цели. Перед удалением запрашивает подтверждение.</td></tr>
+</table>
+
+<h3>Таблица файлов</h3>
+<p>Колонки: <b>Name</b>, <b>Size</b>, <b>Modified</b>, <b>Type</b> (FILE / DIR).<br>
+Двойной клик по строке с каталогом — открыть его.<br>
+При смене активного beacon'а история навигации сбрасывается и выполняется
+автоматический <code>ls</code> текущего рабочего каталога.</p>
+
+
+<h2 id="processbrowser">Обозреватель процессов</h2>
+<p>Вкладка <b>Processes</b> — древовидный список процессов на удалённой машине
+с расширенной информацией. Основные поля (память, сессия, PPID)
+заполняются без привилегий администратора.</p>
+
+<h3>Панель управления</h3>
+<table>
+<tr><th>Элемент</th><th>Описание</th></tr>
+<tr><td><b>Beacon</b> (выпадающий список)</td>
+    <td>Выбор beacon'а, с которого запрашиваются процессы.
+    Отображается в формате <code>user@host (id)</code>.
+    Список обновляется автоматически при изменении Sessions.</td></tr>
+<tr><td><b>Refresh</b></td>
+    <td>Отправить команду <code>ps</code> выбранному beacon'у и построить дерево из ответа.</td></tr>
+<tr><td><b>Kill</b></td>
+    <td>Отправить <code>taskkill /F /PID &lt;pid&gt;</code> через <code>shell</code> для выделенного процесса.
+    Кнопка активна только при выделении строки.</td></tr>
+<tr><td><b>Filter by name&hellip;</b></td>
+    <td>Текстовый фильтр. Поиск по имени процесса (колонка Name), пользователю (User)
+    и PID. Нечувствителен к регистру. Родительские узлы остаются видимыми, если
+    хотя бы один потомок совпадает.</td></tr>
+</table>
+
+<h3>Колонки дерева</h3>
+<table>
+<tr><th>Колонка</th><th>Доступность</th><th>Описание</th></tr>
+<tr><td><b>PID</b></td><td>Всегда</td><td>Идентификатор процесса. В этой колонке отображается древовидная структура с оранжевым пунктиром и голубыми кнопками &plusmn;.</td></tr>
+<tr><td><b>PPID</b></td><td>Всегда</td><td>PID родительского процесса. Используется для построения иерархии.</td></tr>
+<tr><td><b>Session</b></td><td>Всегда</td><td>Номер сеанса Windows (0 — сервисы, 1+ — интерактивные).</td></tr>
+<tr><td><b>Arch</b></td><td>Привилегированный</td><td><code>x64</code> или <code>x86</code>. Если beacon не может открыть процесс — <code>?</code>.</td></tr>
+<tr><td><b>Memory</b></td><td>Всегда</td><td>Working Set. Отображается в MB или KB.</td></tr>
+<tr><td><b>User</b></td><td>Привилегированный</td><td>Владелец: <code>DOMAIN\user</code>. Если нет доступа — <code>-</code>.</td></tr>
+<tr><td><b>Name</b></td><td>Всегда</td><td>Имя исполняемого файла.</td></tr>
+</table>
+
+<div class="note">
+Колонки PID, PPID, Session, Memory и Name заполняются для <b>всех</b> процессов
+независимо от уровня привилегий beacon'а. Arch и User могут быть пустыми
+для процессов других пользователей. При запуске от имени администратора
+покрываются все процессы.
+</div>
+
+<h3>Построение дерева</h3>
+<p>Дерево строится в два прохода:</p>
+<ol>
+<li>Создаются элементы для всех процессов из ответа.</li>
+<li>Каждый элемент привязывается как дочерний к элементу с PID = PPID.
+    Если родитель не найден — процесс помещается в корень дерева.</li>
+</ol>
+<p>После построения дерево полностью раскрывается. Сортировка доступна
+кликом по заголовку любой колонки.</p>
+
+<h2 id="console">Консоль</h2>
+<p>См. <a href="console.html">Консоль beacon'а</a>.</p>
+
+<h2 id="themes">Темы</h2>
+<p>Поддерживаются Light и Dark. Иконки нарисованы как SVG с
+<code>currentColor</code> и перерисовываются под палитру темы при переключении.</p>
+
+</body></html>

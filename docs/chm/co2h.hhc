@@ -1,0 +1,849 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<meta name="GENERATOR" content="Microsoft HTML Help Workshop 4.1">
+<!-- Sitemap 1.0 -->
+</HEAD><BODY>
+<OBJECT type="text/site properties">
+    <param name="ImageType" value="Folder">
+</OBJECT>
+<UL>
+    <LI><OBJECT type="text/sitemap">
+        <param name="Name" value="Главная">
+        <param name="Local" value="index.html">
+        </OBJECT>
+
+    <LI><OBJECT type="text/sitemap">
+        <param name="Name" value="Быстрый старт">
+        <param name="Local" value="getting-started.html">
+        </OBJECT>
+        <UL>
+            <LI><OBJECT type="text/sitemap">
+                <param name="Name" value="1. Сертификаты mTLS">
+                <param name="Local" value="getting-started.html#certs">
+                </OBJECT>
+            <LI><OBJECT type="text/sitemap">
+                <param name="Name" value="2. Запуск teamserver">
+                <param name="Local" value="getting-started.html#server">
+                </OBJECT>
+            <LI><OBJECT type="text/sitemap">
+                <param name="Name" value="3. Запуск клиента">
+                <param name="Local" value="getting-started.html#client">
+                </OBJECT>
+            <LI><OBJECT type="text/sitemap">
+                <param name="Name" value="4. Создание listener'а">
+                <param name="Local" value="getting-started.html#listener">
+                </OBJECT>
+            <LI><OBJECT type="text/sitemap">
+                <param name="Name" value="5. Генерация beacon'а">
+                <param name="Local" value="getting-started.html#gen">
+                </OBJECT>
+            <LI><OBJECT type="text/sitemap">
+                <param name="Name" value="6. Запуск на цели">
+                <param name="Local" value="getting-started.html#run">
+                </OBJECT>
+            <LI><OBJECT type="text/sitemap">
+                <param name="Name" value="7. Взаимодействие">
+                <param name="Local" value="getting-started.html#interact">
+                </OBJECT>
+        </UL>
+
+    <LI><OBJECT type="text/sitemap">
+        <param name="Name" value="Интерфейс оператора">
+        <param name="Local" value="ui-overview.html">
+        </OBJECT>
+        <UL>
+            <LI><OBJECT type="text/sitemap">
+                <param name="Name" value="Меню">
+                <param name="Local" value="ui-overview.html#menu">
+                </OBJECT>
+            <LI><OBJECT type="text/sitemap">
+                <param name="Name" value="Генерация сертификатов">
+                <param name="Local" value="ui-overview.html#certs">
+                </OBJECT>
+            <LI><OBJECT type="text/sitemap">
+                <param name="Name" value="Генерация шеллкода (scelot)">
+                <param name="Local" value="ui-overview.html#scelot">
+                </OBJECT>
+            <LI><OBJECT type="text/sitemap">
+                <param name="Name" value="Диалог генерации артефакта">
+                <param name="Local" value="ui-overview.html#artifact-dialog">
+                </OBJECT>
+            <LI><OBJECT type="text/sitemap">
+                <param name="Name" value="Генерация relay child beacon">
+                <param name="Local" value="artifact-gen.html#relay-child">
+                </OBJECT>
+            <LI><OBJECT type="text/sitemap">
+                <param name="Name" value="Панель инструментов">
+                <param name="Local" value="ui-overview.html#toolbar">
+                </OBJECT>
+            <LI><OBJECT type="text/sitemap">
+                <param name="Name" value="Панель плагинов">
+                <param name="Local" value="ui-overview.html#plugins-bar">
+                </OBJECT>
+            <LI><OBJECT type="text/sitemap">
+                <param name="Name" value="Вкладка Sessions">
+                <param name="Local" value="ui-overview.html#sessions">
+                </OBJECT>
+            <LI><OBJECT type="text/sitemap">
+                <param name="Name" value="Вкладка Listeners">
+                <param name="Local" value="ui-overview.html#listeners">
+                </OBJECT>
+            <LI><OBJECT type="text/sitemap">
+                <param name="Name" value="Вкладка Graph">
+                <param name="Local" value="ui-overview.html#graph">
+                </OBJECT>
+            <LI><OBJECT type="text/sitemap">
+                <param name="Name" value="Вкладка Downloads">
+                <param name="Local" value="ui-overview.html#downloads">
+                </OBJECT>
+            <LI><OBJECT type="text/sitemap">
+                <param name="Name" value="Вкладка Credentials">
+                <param name="Local" value="ui-overview.html#credentials">
+                </OBJECT>
+            <LI><OBJECT type="text/sitemap">
+                <param name="Name" value="Вкладка Chat">
+                <param name="Local" value="ui-overview.html#chat">
+                </OBJECT>
+            <LI><OBJECT type="text/sitemap">
+                <param name="Name" value="Вкладка Logs">
+                <param name="Local" value="ui-overview.html#logs">
+                </OBJECT>
+            <LI><OBJECT type="text/sitemap">
+                <param name="Name" value="Файловый менеджер">
+                <param name="Local" value="ui-overview.html#filebrowser">
+                </OBJECT>
+                <UL>
+                    <LI><OBJECT type="text/sitemap">
+                        <param name="Name" value="Навигация">
+                        <param name="Local" value="ui-overview.html#filebrowser">
+                        </OBJECT>
+                    <LI><OBJECT type="text/sitemap">
+                        <param name="Name" value="Download / Upload / Delete">
+                        <param name="Local" value="ui-overview.html#filebrowser">
+                        </OBJECT>
+                </UL>
+            <LI><OBJECT type="text/sitemap">
+                <param name="Name" value="Обозреватель процессов">
+                <param name="Local" value="ui-overview.html#processbrowser">
+                </OBJECT>
+                <UL>
+                    <LI><OBJECT type="text/sitemap">
+                        <param name="Name" value="Панель управления">
+                        <param name="Local" value="ui-overview.html#processbrowser">
+                        </OBJECT>
+                    <LI><OBJECT type="text/sitemap">
+                        <param name="Name" value="Колонки дерева">
+                        <param name="Local" value="ui-overview.html#processbrowser">
+                        </OBJECT>
+                    <LI><OBJECT type="text/sitemap">
+                        <param name="Name" value="Построение дерева">
+                        <param name="Local" value="ui-overview.html#processbrowser">
+                        </OBJECT>
+                </UL>
+            <LI><OBJECT type="text/sitemap">
+                <param name="Name" value="Консоль beacon'а">
+                <param name="Local" value="console.html">
+                </OBJECT>
+                <UL>
+                    <LI><OBJECT type="text/sitemap">
+                        <param name="Name" value="Заголовок">
+                        <param name="Local" value="console.html#header">
+                        </OBJECT>
+                    <LI><OBJECT type="text/sitemap">
+                        <param name="Name" value="Подсказка команд">
+                        <param name="Local" value="console.html#hints">
+                        </OBJECT>
+                    <LI><OBJECT type="text/sitemap">
+                        <param name="Name" value="Интерактивный shell">
+                        <param name="Local" value="console.html#shell">
+                        </OBJECT>
+                    <LI><OBJECT type="text/sitemap">
+                        <param name="Name" value="Пути с пробелами">
+                        <param name="Local" value="console.html#paths">
+                        </OBJECT>
+                    <LI><OBJECT type="text/sitemap">
+                        <param name="Name" value="История команд">
+                        <param name="Local" value="console.html#history">
+                        </OBJECT>
+                    <LI><OBJECT type="text/sitemap">
+                        <param name="Name" value="Цвета">
+                        <param name="Local" value="console.html#colors">
+                        </OBJECT>
+                </UL>
+            <LI><OBJECT type="text/sitemap">
+                <param name="Name" value="Темы">
+                <param name="Local" value="ui-overview.html#themes">
+                </OBJECT>
+            <LI><OBJECT type="text/sitemap">
+                <param name="Name" value="Lua-скриптинг">
+                <param name="Local" value="scripting.html">
+                </OBJECT>
+                <UL>
+                    <LI><OBJECT type="text/sitemap">
+                        <param name="Name" value="Расположение скриптов">
+                        <param name="Local" value="scripting.html#location">
+                        </OBJECT>
+                    <LI><OBJECT type="text/sitemap">
+                        <param name="Name" value="Вкладка Scripts">
+                        <param name="Local" value="scripting.html#tab">
+                        </OBJECT>
+                    <LI><OBJECT type="text/sitemap">
+                        <param name="Name" value="API движка">
+                        <param name="Local" value="scripting.html#api">
+                        </OBJECT>
+                        <UL>
+                            <LI><OBJECT type="text/sitemap">
+                                <param name="Name" value="task()">
+                                <param name="Local" value="scripting.html#api-task">
+                                </OBJECT>
+                            <LI><OBJECT type="text/sitemap">
+                                <param name="Name" value="log()">
+                                <param name="Local" value="scripting.html#api-log">
+                                </OBJECT>
+                            <LI><OBJECT type="text/sitemap">
+                                <param name="Name" value="alert()">
+                                <param name="Local" value="scripting.html#api-alert">
+                                </OBJECT>
+                            <LI><OBJECT type="text/sitemap">
+                                <param name="Name" value="beacons()">
+                                <param name="Local" value="scripting.html#api-beacons">
+                                </OBJECT>
+                            <LI><OBJECT type="text/sitemap">
+                                <param name="Name" value="on()">
+                                <param name="Local" value="scripting.html#api-on">
+                                </OBJECT>
+                            <LI><OBJECT type="text/sitemap">
+                                <param name="Name" value="command()">
+                                <param name="Local" value="scripting.html#api-command">
+                                </OBJECT>
+                        </UL>
+                    <LI><OBJECT type="text/sitemap">
+                        <param name="Name" value="События">
+                        <param name="Local" value="scripting.html#events">
+                        </OBJECT>
+                    <LI><OBJECT type="text/sitemap">
+                        <param name="Name" value="Примеры">
+                        <param name="Local" value="scripting.html#examples">
+                        </OBJECT>
+                    <LI><OBJECT type="text/sitemap">
+                        <param name="Name" value="Обработка ошибок">
+                        <param name="Local" value="scripting.html#errors">
+                        </OBJECT>
+                    <LI><OBJECT type="text/sitemap">
+                        <param name="Name" value="Рекомендации">
+                        <param name="Local" value="scripting.html#tips">
+                        </OBJECT>
+                </UL>
+        </UL>
+
+    <LI><OBJECT type="text/sitemap">
+        <param name="Name" value="Справочник команд">
+        <param name="Local" value="commands.html">
+        </OBJECT>
+        <UL>
+            <LI><OBJECT type="text/sitemap">
+                <param name="Name" value="Файловая система">
+                <param name="Local" value="commands.html#fs">
+                </OBJECT>
+            <LI><OBJECT type="text/sitemap">
+                <param name="Name" value="Выполнение кода">
+                <param name="Local" value="commands.html#exec">
+                </OBJECT>
+            <LI><OBJECT type="text/sitemap">
+                <param name="Name" value="Shellcode-инъекции">
+                <param name="Local" value="commands.html#inject">
+                </OBJECT>
+            <LI><OBJECT type="text/sitemap">
+                <param name="Name" value="Inject DLL (рефлективная загрузка)">
+                <param name="Local" value="commands.html#inject_dll">
+                </OBJECT>
+            <LI><OBJECT type="text/sitemap">
+                <param name="Name" value="Миграция beacon'а (migrate)">
+                <param name="Local" value="commands.html#migrate">
+                </OBJECT>
+            <LI><OBJECT type="text/sitemap">
+                <param name="Name" value="BOF">
+                <param name="Local" value="commands.html#bof">
+                </OBJECT>
+            <LI><OBJECT type="text/sitemap">
+                <param name="Name" value="Execute-Assembly (.NET)">
+                <param name="Local" value="commands.html#execasm">
+                </OBJECT>
+            <LI><OBJECT type="text/sitemap">
+                <param name="Name" value="Pivot и цепочки ретрансляции">
+                <param name="Local" value="commands.html#pivot">
+                </OBJECT>
+                <UL>
+                    <LI><OBJECT type="text/sitemap">
+                        <param name="Name" value="tcp_pivot">
+                        <param name="Local" value="commands.html#pivot">
+                        </OBJECT>
+                    <LI><OBJECT type="text/sitemap">
+                        <param name="Name" value="Многоуровневые цепочки (relay chain)">
+                        <param name="Local" value="commands.html#relay-chain">
+                        </OBJECT>
+                </UL>
+            <LI><OBJECT type="text/sitemap">
+                <param name="Name" value="Токены">
+                <param name="Local" value="commands.html#tokens">
+                </OBJECT>
+            <LI><OBJECT type="text/sitemap">
+                <param name="Name" value="Дамп учётных данных (hashdump, edge_creds, Kerberos)">
+                <param name="Local" value="commands.html#creds">
+                </OBJECT>
+                <UL>
+                    <LI><OBJECT type="text/sitemap">
+                        <param name="Name" value="hashdump — SAM/LSA">
+                        <param name="Local" value="commands.html#creds">
+                        </OBJECT>
+                    <LI><OBJECT type="text/sitemap">
+                        <param name="Name" value="edge_creds — пароли из Edge">
+                        <param name="Local" value="commands.html#edge_creds">
+                        </OBJECT>
+                    <LI><OBJECT type="text/sitemap">
+                        <param name="Name" value="Kerberos-билеты (ticket_*)">
+                        <param name="Local" value="commands.html#creds">
+                        </OBJECT>
+                    <LI><OBJECT type="text/sitemap">
+                        <param name="Name" value="Kerberoasting (kerberoast)">
+                        <param name="Local" value="commands.html#kerberoast">
+                        </OBJECT>
+                </UL>
+            <LI><OBJECT type="text/sitemap">
+                <param name="Name" value="NTLM relay / Coercion">
+                <param name="Local" value="commands.html#relay">
+                </OBJECT>
+            <LI><OBJECT type="text/sitemap">
+                <param name="Name" value="DCSync (MS-DRSR)">
+                <param name="Local" value="commands.html#dcsync">
+                </OBJECT>
+            <LI><OBJECT type="text/sitemap">
+                <param name="Name" value="ADCS Enumeration (ESC1-16)">
+                <param name="Local" value="commands.html#adcs">
+                </OBJECT>
+            <LI><OBJECT type="text/sitemap">
+                <param name="Name" value="Lateral Movement (psexec, wmi, dcom, winrm)">
+                <param name="Local" value="commands.html#lateral">
+                </OBJECT>
+            <LI><OBJECT type="text/sitemap">
+                <param name="Name" value="Port Forward">
+                <param name="Local" value="commands.html#portfwd">
+                </OBJECT>
+            <LI><OBJECT type="text/sitemap">
+                <param name="Name" value="Reverse Port Forward">
+                <param name="Local" value="commands.html#rportfwd">
+                </OBJECT>
+            <LI><OBJECT type="text/sitemap">
+                <param name="Name" value="Скриншот (screenshot)">
+                <param name="Local" value="commands.html#screenshot">
+                </OBJECT>
+            <LI><OBJECT type="text/sitemap">
+                <param name="Name" value="Повышение привилегий">
+                <param name="Local" value="commands.html#privesc">
+                </OBJECT>
+                <UL>
+                    <LI><OBJECT type="text/sitemap">
+                        <param name="Name" value="privesc_plasma (User → SYSTEM)">
+                        <param name="Local" value="commands.html#privesc_plasma">
+                        </OBJECT>
+                </UL>
+            <LI><OBJECT type="text/sitemap">
+                <param name="Name" value="Persistence (persist_reg, persist_task)">
+                <param name="Local" value="commands.html#persist">
+                </OBJECT>
+            <LI><OBJECT type="text/sitemap">
+                <param name="Name" value="Port Scan (portscan)">
+                <param name="Local" value="commands.html#portscan">
+                </OBJECT>
+            <LI><OBJECT type="text/sitemap">
+                <param name="Name" value="Keylogger (keylogger)">
+                <param name="Local" value="commands.html#keylogger">
+                </OBJECT>
+                <UL>
+                    <LI><OBJECT type="text/sitemap">
+                        <param name="Name" value="keylogger start">
+                        <param name="Local" value="commands.html#keylogger">
+                        </OBJECT>
+                    <LI><OBJECT type="text/sitemap">
+                        <param name="Name" value="keylogger dump">
+                        <param name="Local" value="commands.html#keylogger">
+                        </OBJECT>
+                    <LI><OBJECT type="text/sitemap">
+                        <param name="Name" value="keylogger stop">
+                        <param name="Local" value="commands.html#keylogger">
+                        </OBJECT>
+                </UL>
+            <LI><OBJECT type="text/sitemap">
+                <param name="Name" value="Стейджеры (stager_*)">
+                <param name="Local" value="commands.html#stagers">
+                </OBJECT>
+                <UL>
+                    <LI><OBJECT type="text/sitemap">
+                        <param name="Name" value="stager_lnk">
+                        <param name="Local" value="commands.html#stagers">
+                        </OBJECT>
+                    <LI><OBJECT type="text/sitemap">
+                        <param name="Name" value="stager_hta">
+                        <param name="Local" value="commands.html#stagers">
+                        </OBJECT>
+                    <LI><OBJECT type="text/sitemap">
+                        <param name="Name" value="stager_vbs">
+                        <param name="Local" value="commands.html#stagers">
+                        </OBJECT>
+                    <LI><OBJECT type="text/sitemap">
+                        <param name="Name" value="stager_wsf">
+                        <param name="Local" value="commands.html#stagers">
+                        </OBJECT>
+                    <LI><OBJECT type="text/sitemap">
+                        <param name="Name" value="stager_iso">
+                        <param name="Local" value="commands.html#stagers">
+                        </OBJECT>
+                    <LI><OBJECT type="text/sitemap">
+                        <param name="Name" value="stager_chm">
+                        <param name="Local" value="commands.html#stagers">
+                        </OBJECT>
+                    <LI><OBJECT type="text/sitemap">
+                        <param name="Name" value="Флаг --rm-after">
+                        <param name="Local" value="commands.html#stagers-flag">
+                        </OBJECT>
+                    <LI><OBJECT type="text/sitemap">
+                        <param name="Name" value="PPID-спуфинг (explorer.exe)">
+                        <param name="Local" value="commands.html#stagers-ppid">
+                        </OBJECT>
+                </UL>
+            <LI><OBJECT type="text/sitemap">
+                <param name="Name" value="Управление beacon'ом">
+                <param name="Local" value="commands.html#control">
+                </OBJECT>
+        </UL>
+
+    <LI><OBJECT type="text/sitemap">
+        <param name="Name" value="Команды Linux beacon'а">
+        <param name="Local" value="commands-linux.html">
+        </OBJECT>
+        <UL>
+            <LI><OBJECT type="text/sitemap">
+                <param name="Name" value="Файловая система (cat, mkdir, chmod)">
+                <param name="Local" value="commands-linux.html#fs-linux">
+                </OBJECT>
+            <LI><OBJECT type="text/sitemap">
+                <param name="Name" value="Выполнение и процессы (shell, ps, kill)">
+                <param name="Local" value="commands-linux.html#exec-linux">
+                </OBJECT>
+            <LI><OBJECT type="text/sitemap">
+                <param name="Name" value="Информация о системе (whoami, id, env, ifconfig)">
+                <param name="Local" value="commands-linux.html#sysinfo">
+                </OBJECT>
+            <LI><OBJECT type="text/sitemap">
+                <param name="Name" value="Скриншот (X11 / framebuffer)">
+                <param name="Local" value="commands-linux.html#screenshot-linux">
+                </OBJECT>
+            <LI><OBJECT type="text/sitemap">
+                <param name="Name" value="Повышение привилегий (privesc_root)">
+                <param name="Local" value="commands-linux.html#privesc-linux">
+                </OBJECT>
+                <UL>
+                    <LI><OBJECT type="text/sitemap">
+                        <param name="Name" value="Метод passwd (Dirty Pipe)">
+                        <param name="Local" value="commands-linux.html#privesc-methods">
+                        </OBJECT>
+                    <LI><OBJECT type="text/sitemap">
+                        <param name="Name" value="Метод suid (Dirty Pipe)">
+                        <param name="Local" value="commands-linux.html#privesc-methods">
+                        </OBJECT>
+                    <LI><OBJECT type="text/sitemap">
+                        <param name="Name" value="Метод afalg (Dirty Pipe)">
+                        <param name="Local" value="commands-linux.html#privesc-methods">
+                        </OBJECT>
+                    <LI><OBJECT type="text/sitemap">
+                        <param name="Name" value="Метод copyfail (CVE-2026-31431)">
+                        <param name="Local" value="commands-linux.html#privesc-copyfail">
+                        </OBJECT>
+                    <LI><OBJECT type="text/sitemap">
+                        <param name="Name" value="Метод copyfail_passwd (CVE-2026-31431)">
+                        <param name="Local" value="commands-linux.html#privesc-copyfail">
+                        </OBJECT>
+                    <LI><OBJECT type="text/sitemap">
+                        <param name="Name" value="Совместимость ядер (Dirty Pipe)">
+                        <param name="Local" value="commands-linux.html#privesc-kernel">
+                        </OBJECT>
+                    <LI><OBJECT type="text/sitemap">
+                        <param name="Name" value="Совместимость ядер (Copy Fail)">
+                        <param name="Local" value="commands-linux.html#privesc-kernel-copyfail">
+                        </OBJECT>
+                </UL>
+            <LI><OBJECT type="text/sitemap">
+                <param name="Name" value="Управление (sleep, exit)">
+                <param name="Local" value="commands-linux.html#control-linux">
+                </OBJECT>
+        </UL>
+
+    <LI><OBJECT type="text/sitemap">
+        <param name="Name" value="Серверная часть">
+        </OBJECT>
+        <UL>
+            <LI><OBJECT type="text/sitemap">
+                <param name="Name" value="Teamserver">
+                <param name="Local" value="teamserver.html">
+                </OBJECT>
+                <UL>
+                    <LI><OBJECT type="text/sitemap">
+                        <param name="Name" value="Структура конфига srv.toml">
+                        <param name="Local" value="teamserver.html#config">
+                        </OBJECT>
+                    <LI><OBJECT type="text/sitemap">
+                        <param name="Name" value="Что делает teamserver при старте">
+                        <param name="Local" value="teamserver.html#startup">
+                        </OBJECT>
+                    <LI><OBJECT type="text/sitemap">
+                        <param name="Name" value="Аутентификация операторов">
+                        <param name="Local" value="teamserver.html#auth">
+                        </OBJECT>
+                    <LI><OBJECT type="text/sitemap">
+                        <param name="Name" value="Credentials store">
+                        <param name="Local" value="teamserver.html#creds">
+                        </OBJECT>
+                    <LI><OBJECT type="text/sitemap">
+                        <param name="Name" value="Запуск из клиента">
+                        <param name="Local" value="teamserver.html#from-client">
+                        </OBJECT>
+                </UL>
+            <LI><OBJECT type="text/sitemap">
+                <param name="Name" value="Listener'ы">
+                <param name="Local" value="listeners.html">
+                </OBJECT>
+                <UL>
+                    <LI><OBJECT type="text/sitemap">
+                        <param name="Name" value="HTTPS">
+                        <param name="Local" value="listeners.html#https">
+                        </OBJECT>
+                    <LI><OBJECT type="text/sitemap">
+                        <param name="Name" value="TCP (raw)">
+                        <param name="Local" value="listeners.html#tcp">
+                        </OBJECT>
+                    <LI><OBJECT type="text/sitemap">
+                        <param name="Name" value="SMB (named pipe)">
+                        <param name="Local" value="listeners.html#smb">
+                        </OBJECT>
+                    <LI><OBJECT type="text/sitemap">
+                        <param name="Name" value="DNS (UDP)">
+                        <param name="Local" value="listeners.html#dns">
+                        </OBJECT>
+                    <LI><OBJECT type="text/sitemap">
+                        <param name="Name" value="Pivot">
+                        <param name="Local" value="listeners.html#pivot">
+                        </OBJECT>
+                    <LI><OBJECT type="text/sitemap">
+                        <param name="Name" value="SOCKS5">
+                        <param name="Local" value="listeners.html#socks5">
+                        </OBJECT>
+                    <LI><OBJECT type="text/sitemap">
+                        <param name="Name" value="Reverse Port Forward">
+                        <param name="Local" value="listeners.html#rportfwd">
+                        </OBJECT>
+                    <LI><OBJECT type="text/sitemap">
+                        <param name="Name" value="Fallback C2 (ротация каналов)">
+                        <param name="Local" value="listeners.html#fallback">
+                        </OBJECT>
+                    <LI><OBJECT type="text/sitemap">
+                        <param name="Name" value="Жизненный цикл">
+                        <param name="Local" value="listeners.html#lifecycle">
+                        </OBJECT>
+                </UL>
+            <LI><OBJECT type="text/sitemap">
+                <param name="Name" value="Malleable-профили">
+                <param name="Local" value="profiles.html">
+                </OBJECT>
+                <UL>
+                    <LI><OBJECT type="text/sitemap">
+                        <param name="Name" value="Как профиль применяется">
+                        <param name="Local" value="profiles.html#how">
+                        </OBJECT>
+                    <LI><OBJECT type="text/sitemap">
+                        <param name="Name" value="Справочник полей">
+                        <param name="Local" value="profiles.html#ref">
+                        </OBJECT>
+                    <LI><OBJECT type="text/sitemap">
+                        <param name="Name" value="Готовые профили">
+                        <param name="Local" value="profiles.html#presets">
+                        </OBJECT>
+                    <LI><OBJECT type="text/sitemap">
+                        <param name="Name" value="Пример: Office 365">
+                        <param name="Local" value="profiles.html#example">
+                        </OBJECT>
+                </UL>
+            <LI><OBJECT type="text/sitemap">
+                <param name="Name" value="Генератор артефактов">
+                <param name="Local" value="artifact-gen.html">
+                </OBJECT>
+                <UL>
+                    <LI><OBJECT type="text/sitemap">
+                        <param name="Name" value="Запуск из GUI">
+                        <param name="Local" value="artifact-gen.html#gui">
+                        </OBJECT>
+                    <LI><OBJECT type="text/sitemap">
+                        <param name="Name" value="Выбор целевой ОС (Windows / Linux)">
+                        <param name="Local" value="ui-overview.html#artifact-dialog">
+                        </OBJECT>
+                    <LI><OBJECT type="text/sitemap">
+                        <param name="Name" value="Поиск BeaconState">
+                        <param name="Local" value="artifact-gen.html#beaconstate">
+                        </OBJECT>
+                    <LI><OBJECT type="text/sitemap">
+                        <param name="Name" value="Выбор транспорта">
+                        <param name="Local" value="artifact-gen.html#transport">
+                        </OBJECT>
+                    <LI><OBJECT type="text/sitemap">
+                        <param name="Name" value="Требования для DNS-артефакта">
+                        <param name="Local" value="artifact-gen.html#dns-prereq">
+                        </OBJECT>
+                </UL>
+        </UL>
+
+    <LI><OBJECT type="text/sitemap">
+        <param name="Name" value="Plugin API">
+        <param name="Local" value="plugin-api.html">
+        </OBJECT>
+        <UL>
+            <LI><OBJECT type="text/sitemap">
+                <param name="Name" value="Структура плагина">
+                <param name="Local" value="plugin-api.html#structure">
+                </OBJECT>
+            <LI><OBJECT type="text/sitemap">
+                <param name="Name" value="Интерфейс IClientPlugin">
+                <param name="Local" value="plugin-api.html#interface">
+                </OBJECT>
+            <LI><OBJECT type="text/sitemap">
+                <param name="Name" value="PluginContext — API">
+                <param name="Local" value="plugin-api.html#context">
+                </OBJECT>
+                <UL>
+                    <LI><OBJECT type="text/sitemap">
+                        <param name="Name" value="Управление вкладками">
+                        <param name="Local" value="plugin-api.html#ctx-tabs">
+                        </OBJECT>
+                    <LI><OBJECT type="text/sitemap">
+                        <param name="Name" value="Выполнение задач">
+                        <param name="Local" value="plugin-api.html#ctx-tasks">
+                        </OBJECT>
+                    <LI><OBJECT type="text/sitemap">
+                        <param name="Name" value="Консольные команды">
+                        <param name="Local" value="plugin-api.html#ctx-commands">
+                        </OBJECT>
+                    <LI><OBJECT type="text/sitemap">
+                        <param name="Name" value="Вывод">
+                        <param name="Local" value="plugin-api.html#ctx-output">
+                        </OBJECT>
+                    <LI><OBJECT type="text/sitemap">
+                        <param name="Name" value="Доступ к моделям">
+                        <param name="Local" value="plugin-api.html#ctx-models">
+                        </OBJECT>
+                </UL>
+            <LI><OBJECT type="text/sitemap">
+                <param name="Name" value="Иконка плагина">
+                <param name="Local" value="plugin-api.html#icons">
+                </OBJECT>
+            <LI><OBJECT type="text/sitemap">
+                <param name="Name" value="Пример: плагин Recon">
+                <param name="Local" value="plugin-api.html#example">
+                </OBJECT>
+            <LI><OBJECT type="text/sitemap">
+                <param name="Name" value="Сборка плагина">
+                <param name="Local" value="plugin-api.html#build">
+                </OBJECT>
+            <LI><OBJECT type="text/sitemap">
+                <param name="Name" value="Жизненный цикл">
+                <param name="Local" value="plugin-api.html#lifecycle">
+                </OBJECT>
+            <LI><OBJECT type="text/sitemap">
+                <param name="Name" value="Рекомендации">
+                <param name="Local" value="plugin-api.html#tips">
+                </OBJECT>
+        </UL>
+
+    <LI><OBJECT type="text/sitemap">
+        <param name="Name" value="Artifact Kit">
+        <param name="Local" value="artifact-kit.html">
+        </OBJECT>
+        <UL>
+            <LI><OBJECT type="text/sitemap">
+                <param name="Name" value="Структура каталога">
+                <param name="Local" value="artifact-kit.html#structure">
+                </OBJECT>
+            <LI><OBJECT type="text/sitemap">
+                <param name="Name" value="Секция .co2pay">
+                <param name="Local" value="artifact-kit.html#payload-section">
+                </OBJECT>
+            <LI><OBJECT type="text/sitemap">
+                <param name="Name" value="Общий заголовок artifact.h">
+                <param name="Local" value="artifact-kit.html#header">
+                </OBJECT>
+            <LI><OBJECT type="text/sitemap">
+                <param name="Name" value="exe_basic">
+                <param name="Local" value="artifact-kit.html#exe_basic">
+                </OBJECT>
+            <LI><OBJECT type="text/sitemap">
+                <param name="Name" value="exe_debug">
+                <param name="Local" value="artifact-kit.html#exe_debug">
+                </OBJECT>
+            <LI><OBJECT type="text/sitemap">
+                <param name="Name" value="exe_svc (Windows Service)">
+                <param name="Local" value="artifact-kit.html#exe_svc">
+                </OBJECT>
+            <LI><OBJECT type="text/sitemap">
+                <param name="Name" value="exe_reflective (in-memory loader)">
+                <param name="Local" value="artifact-kit.html#exe_reflective">
+                </OBJECT>
+            <LI><OBJECT type="text/sitemap">
+                <param name="Name" value="exe_inject (remote injection)">
+                <param name="Local" value="artifact-kit.html#exe_inject">
+                </OBJECT>
+            <LI><OBJECT type="text/sitemap">
+                <param name="Name" value="exe_ppid (PPID-spoofing)">
+                <param name="Local" value="artifact-kit.html#exe_ppid">
+                </OBJECT>
+            <LI><OBJECT type="text/sitemap">
+                <param name="Name" value="dll_sideload (DLL hijack)">
+                <param name="Local" value="artifact-kit.html#dll_sideload">
+                </OBJECT>
+            <LI><OBJECT type="text/sitemap">
+                <param name="Name" value="Сборка (build_all.bat)">
+                <param name="Local" value="artifact-kit.html#build">
+                </OBJECT>
+            <LI><OBJECT type="text/sitemap">
+                <param name="Name" value="Как написать свой стаб">
+                <param name="Local" value="artifact-kit.html#writing">
+                </OBJECT>
+        </UL>
+
+    <LI><OBJECT type="text/sitemap">
+        <param name="Name" value="Sleep Mask Kit">
+        <param name="Local" value="sleepmask-kit.html">
+        </OBJECT>
+        <UL>
+            <LI><OBJECT type="text/sitemap">
+                <param name="Name" value="Архитектура">
+                <param name="Local" value="sleepmask-kit.html#arch">
+                </OBJECT>
+            <LI><OBJECT type="text/sitemap">
+                <param name="Name" value="API (SleepMaskCtx)">
+                <param name="Local" value="sleepmask-kit.html#api">
+                </OBJECT>
+            <LI><OBJECT type="text/sitemap">
+                <param name="Name" value="Контракт маски">
+                <param name="Local" value="sleepmask-kit.html#contract">
+                </OBJECT>
+            <LI><OBJECT type="text/sitemap">
+                <param name="Name" value="Сборка">
+                <param name="Local" value="sleepmask-kit.html#build">
+                </OBJECT>
+            <LI><OBJECT type="text/sitemap">
+                <param name="Name" value="Готовые варианты">
+                <param name="Local" value="sleepmask-kit.html#variants">
+                </OBJECT>
+            <LI><OBJECT type="text/sitemap">
+                <param name="Name" value="Как написать свою маску">
+                <param name="Local" value="sleepmask-kit.html#writing">
+                </OBJECT>
+            <LI><OBJECT type="text/sitemap">
+                <param name="Name" value="Подводные камни x86">
+                <param name="Local" value="sleepmask-kit.html#x86-pitfalls">
+                </OBJECT>
+            <LI><OBJECT type="text/sitemap">
+                <param name="Name" value="Пример: минимальная маска">
+                <param name="Local" value="sleepmask-kit.html#example-minimal">
+                </OBJECT>
+            <LI><OBJECT type="text/sitemap">
+                <param name="Name" value="Пример: ChaCha20">
+                <param name="Local" value="sleepmask-kit.html#example-chacha">
+                </OBJECT>
+            <LI><OBJECT type="text/sitemap">
+                <param name="Name" value="Интеграция с beacon'ом">
+                <param name="Local" value="sleepmask-kit.html#integration">
+                </OBJECT>
+        </UL>
+
+    <LI><OBJECT type="text/sitemap">
+        <param name="Name" value="Process Inject Kit">
+        <param name="Local" value="processinject-kit.html">
+        </OBJECT>
+        <UL>
+            <LI><OBJECT type="text/sitemap">
+                <param name="Name" value="Архитектура">
+                <param name="Local" value="processinject-kit.html#arch">
+                </OBJECT>
+            <LI><OBJECT type="text/sitemap">
+                <param name="Name" value="API (InjectCtx)">
+                <param name="Local" value="processinject-kit.html#api">
+                </OBJECT>
+            <LI><OBJECT type="text/sitemap">
+                <param name="Name" value="Требования инжектора">
+                <param name="Local" value="processinject-kit.html#contract">
+                </OBJECT>
+            <LI><OBJECT type="text/sitemap">
+                <param name="Name" value="Сборка">
+                <param name="Local" value="processinject-kit.html#build">
+                </OBJECT>
+            <LI><OBJECT type="text/sitemap">
+                <param name="Name" value="Готовые варианты">
+                <param name="Local" value="processinject-kit.html#variants">
+                </OBJECT>
+            <LI><OBJECT type="text/sitemap">
+                <param name="Name" value="Как написать свой инъектор">
+                <param name="Local" value="processinject-kit.html#writing">
+                </OBJECT>
+            <LI><OBJECT type="text/sitemap">
+                <param name="Name" value="Подводные камни x86">
+                <param name="Local" value="processinject-kit.html#x86-pitfalls">
+                </OBJECT>
+            <LI><OBJECT type="text/sitemap">
+                <param name="Name" value="Пример: стандартный инъектор">
+                <param name="Local" value="processinject-kit.html#example-default">
+                </OBJECT>
+            <LI><OBJECT type="text/sitemap">
+                <param name="Name" value="Пример: NtMapViewOfSection">
+                <param name="Local" value="processinject-kit.html#example-section-map">
+                </OBJECT>
+            <LI><OBJECT type="text/sitemap">
+                <param name="Name" value="Интеграция с beacon'ом">
+                <param name="Local" value="processinject-kit.html#integration">
+                </OBJECT>
+        </UL>
+
+    <LI><OBJECT type="text/sitemap">
+        <param name="Name" value="Диагностика">
+        <param name="Local" value="troubleshooting.html">
+        </OBJECT>
+        <UL>
+            <LI><OBJECT type="text/sitemap">
+                <param name="Name" value="Authentication failed">
+                <param name="Local" value="troubleshooting.html#auth-failed">
+                </OBJECT>
+            <LI><OBJECT type="text/sitemap">
+                <param name="Name" value="Beacon не появляется">
+                <param name="Local" value="troubleshooting.html#no-beacon">
+                </OBJECT>
+            <LI><OBJECT type="text/sitemap">
+                <param name="Name" value="execute-assembly: hr=0x80131522">
+                <param name="Local" value="troubleshooting.html#ea-hr">
+                </OBJECT>
+            <LI><OBJECT type="text/sitemap">
+                <param name="Name" value="execute-assembly: вывод пустой">
+                <param name="Local" value="troubleshooting.html#ea-empty">
+                </OBJECT>
+            <LI><OBJECT type="text/sitemap">
+                <param name="Name" value="inject_apc: APCs queued: 0">
+                <param name="Local" value="troubleshooting.html#apc-zero">
+                </OBJECT>
+            <LI><OBJECT type="text/sitemap">
+                <param name="Name" value="BOF падает">
+                <param name="Local" value="troubleshooting.html#bof-crash">
+                </OBJECT>
+            <LI><OBJECT type="text/sitemap">
+                <param name="Name" value="sentinel not found">
+                <param name="Local" value="troubleshooting.html#sentinel">
+                </OBJECT>
+        </UL>
+</UL>
+</BODY></HTML>

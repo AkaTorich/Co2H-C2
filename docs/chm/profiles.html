@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="ru"><head>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<title>Malleable-профили</title>
+<link rel="stylesheet" href="style.css">
+</head><body>
+<nav class="crumbs"><a href="index.html">Главная</a> &raquo; Malleable-профили</nav>
+
+<h1>Malleable-профили</h1>
+
+<p>Профиль — TOML-файл, описывающий, как HTTPS-listener должен «выглядеть» с точки зрения сети.
+Применяется только к HTTPS-transport'у; TCP, SMB и DNS профиль не используют.</p>
+
+<p>Профиль задаётся при создании listener'а: поле <b>Profile</b> в диалоге New Listener,
+либо ключ <code>profile</code> в секции <code>[[listeners]]</code> файла <code>srv.toml</code>.
+Если поле оставить пустым — применяется встроенный профиль по умолчанию.</p>
+
+<h2 id="how">Какие компоненты используют профиль</h2>
+<p>Профиль задействован в двух местах, которые <b>должны быть согласованы</b>:</p>
+
+<table>
+<tr><th>Компонент</th><th>Что берёт из профиля</th></tr>
+<tr><td><b>Teamserver</b> (HTTPS listener)</td>
+    <td>
+    Маршрутизация входящих запросов: сравнивает метод и URI с полями
+    <code>verb</code>, <code>uri_checkin</code>, <code>uri_task</code>, <code>http-post.uri</code>.<br>
+    Поиск зашифрованного blob beacon'а в куке <code>metadata_cookie</code>.<br>
+    Формирование ответа: статус, Content-Type, wrap_prefix/suffix, дополнительные заголовки.
+    </td></tr>
+<tr><td><b>Генератор артефактов</b></td>
+    <td>
+    При генерации вшивает в beacon значения <code>uri_checkin</code>, <code>uri_task</code>,
+    <code>http-post.uri</code>, <code>User-Agent</code> и <code>metadata_cookie</code>
+    — beacon будет обращаться именно на эти URI и передавать метаданные именно в этой куке.
+    </td></tr>
+</table>
+
+<p>Если beacon сгенерирован под один профиль, а listener запущен с другим —
+URI или имя куки не совпадут и beacon не получит ни одной задачи.</p>
+
+<p>Поля <code>[server]</code> и <code>[server.headers]</code> влияют только на teamserver
+(вид HTTP-ответов). Beacon их не читает — он принимает тело как есть.</p>
+
+<h2 id="ref">Справочник полей</h2>
+
+<h3>[http-get]</h3>
+<table>
+<tr><th>Поле</th><th>Тип</th><th>По умолчанию</th><th>Описание</th></tr>
+<tr><td><code>uri_checkin</code></td><td>string</td><td><code>/search</code></td>
+    <td>URI, на который beacon шлёт check-in (с кукой метаданных).</td></tr>
+<tr><td><code>uri_task</code></td><td>string</td><td><code>/api/feed</code></td>
+    <td>URI для получения задач. Может совпадать с <code>uri_checkin</code>.</td></tr>
+<tr><td><code>verb</code></td><td>string</td><td><code>GET</code></td>
+    <td>HTTP-метод для check-in и poll.</td></tr>
+<tr><td><code>metadata_cookie</code></td><td>string</td><td><code>sid</code></td>
+    <td>Имя куки, в которой beacon передаёт зашифрованные метаданные при каждом обращении.</td></tr>
+</table>
+
+<h3>[http-get.client_headers]</h3>
+<p>Произвольные HTTP-заголовки GET-запросов beacon'а. Типичные поля:</p>
+<table>
+<tr><th>Заголовок</th><th>Пример</th></tr>
+<tr><td><code>User-Agent</code></td><td><code>"Mozilla/5.0 (Windows NT 10.0; Win64; x64) ..."</code></td></tr>
+<tr><td><code>Accept</code></td><td><code>"text/html,application/xhtml+xml,*/*;q=0.8"</code></td></tr>
+<tr><td><code>Accept-Language</code></td><td><code>"en-US,en;q=0.9"</code></td></tr>
+<tr><td><code>Accept-Encoding</code></td><td><code>"gzip, deflate, br"</code></td></tr>
+<tr><td><code>Sec-Fetch-*</code></td><td>браузерные security-заголовки Chrome</td></tr>
+</table>
+
+<h3>[http-post]</h3>
+<table>
+<tr><th>Поле</th><th>Тип</th><th>По умолчанию</th><th>Описание</th></tr>
+<tr><td><code>uri</code></td><td>string</td><td><code>/submit</code></td>
+    <td>URI для отправки вывода beacon'а (результаты команд, файлы).</td></tr>
+<tr><td><code>verb</code></td><td>string</td><td><code>POST</code></td>
+    <td>HTTP-метод submit.</td></tr>
+</table>
+
+<h3>[http-post.client_headers]</h3>
+<p>Произвольные HTTP-заголовки POST-запросов beacon'а. Типичные поля:</p>
+<table>
+<tr><th>Заголовок</th><th>Пример</th><th>Примечание</th></tr>
+<tr><td><code>Content-Type</code></td><td><code>"application/octet-stream"</code></td>
+    <td>По умолчанию. Для маскировки под JSON-API: <code>"application/json; charset=utf-8"</code>.</td></tr>
+<tr><td><code>User-Agent</code></td><td><code>"Mozilla/5.0 ..."</code></td>
+    <td>Обычно совпадает с GET. Если не указан — использует значение из <code>[http-get.client_headers]</code>.</td></tr>
+<tr><td><code>Accept</code></td><td><code>"*/*"</code></td>
+    <td>Для правдоподобности при маскировке под API.</td></tr>
+<tr><td><code>X-Requested-With</code></td><td><code>"XMLHttpRequest"</code></td>
+    <td>Характерно для AJAX-запросов к веб-приложениям.</td></tr>
+<tr><td><code>Origin</code> / <code>Referer</code></td><td><code>"https://example.com"</code></td>
+    <td>Имитация запроса из браузера.</td></tr>
+</table>
+
+<h3>[server]</h3>
+<table>
+<tr><th>Поле</th><th>Тип</th><th>По умолчанию</th><th>Описание</th></tr>
+<tr><td><code>status</code></td><td>int</td><td><code>200</code></td>
+    <td>HTTP-статус ответов с payload. Можно поставить <code>206</code> (Partial Content)
+        для правдоподобности.</td></tr>
+<tr><td><code>content_type</code></td><td>string</td><td><code>text/html; charset=utf-8</code></td>
+    <td>Значение заголовка <code>Content-Type</code> в ответе.</td></tr>
+<tr><td><code>wrap_prefix</code></td><td>string</td><td><code>""</code></td>
+    <td>Строка, добавляемая <b>до</b> payload в теле ответа.
+        Например: <code>"&lt;html&gt;&lt;body&gt;"</code>.</td></tr>
+<tr><td><code>wrap_suffix</code></td><td>string</td><td><code>""</code></td>
+    <td>Строка, добавляемая <b>после</b> payload в теле ответа.
+        Например: <code>"&lt;/body&gt;&lt;/html&gt;"</code>.</td></tr>
+</table>
+
+<h3>[server.headers]</h3>
+<p>Дополнительные HTTP-заголовки ответа. Добавляются к каждому ответу listener'а.
+Заголовки <code>Content-Length</code> и <code>Connection</code> добавляются автоматически —
+указывать их не нужно.</p>
+<table>
+<tr><th>Пример</th><th>Эффект</th></tr>
+<tr><td><code>"Server" = "nginx"</code></td><td>Маскировка под nginx.</td></tr>
+<tr><td><code>"Cache-Control" = "no-cache"</code></td><td>Вид динамического контента.</td></tr>
+<tr><td><code>"X-Frame-Options" = "SAMEORIGIN"</code></td><td>Имитация защитных заголовков браузерного приложения.</td></tr>
+<tr><td><code>"X-XSS-Protection" = "0"</code></td><td>Характерно для Google-серверов (<code>gws</code>).</td></tr>
+</table>
+
+<h2 id="presets">Стандартный профиль</h2>
+<p><code>profiles/default.toml</code> — nginx + Chrome UA. Check-in на <code>/search</code>,
+задачи на <code>/api/feed</code>, submit на <code>/submit</code>. Кука <code>sid</code>.
+Используется по умолчанию в <code>configs/srv.toml</code>.</p>
+
+<h2 id="example">Пример: маскировка под Office 365</h2>
+<pre>[http-get]
+uri_checkin     = "/owa/auth/logon.aspx"
+uri_task        = "/owa/service.svc"
+verb            = "GET"
+metadata_cookie = "ClientId"
+
+[http-get.client_headers]
+"User-Agent"      = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+"Accept"          = "text/html,application/xhtml+xml,*/*;q=0.8"
+"Accept-Language" = "en-US,en;q=0.9"
+
+[http-post]
+uri  = "/owa/service.svc/s/GetMail"
+verb = "POST"
+
+[http-post.client_headers]
+"Content-Type" = "application/json; charset=utf-8"
+"X-OWA-CANARY" = "placeholder"
+
+[server]
+status       = 200
+content_type = "application/json; charset=utf-8"
+wrap_prefix  = ""
+wrap_suffix  = ""
+
+[server.headers]
+"Server"        = "Microsoft-IIS/10.0"
+"X-Powered-By"  = "ASP.NET"
+"Cache-Control" = "private"</pre>
+
+<div class="opsec">
+<b>Замечание по wrap_prefix / wrap_suffix.</b>
+Beacon при получении ответа извлекает base64url-данные из всего тела,
+<b>игнорируя символы вне алфавита</b> (<code>A–Z a–z 0–9 - _</code>).
+Поэтому prefix и suffix должны состоять <em>только</em> из символов вне этого алфавита:
+<code>&lt; &gt; ! " { } : , /</code> и т.п.
+Если prefix содержит буквенно-цифровой символ или дефис/подчёркивание —
+он будет включён в декодируемый поток и payload окажется повреждён.
+</div>
+
+</body></html>

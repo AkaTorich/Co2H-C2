@@ -1,0 +1,122 @@
+# apis.txt -- список функций для генерации хешей
+# Использование: hash_gen -f apis.txt > new_hashes.h
+#
+# Строки, начинающиеся с # или ;, игнорируются.
+# Пустые строки игнорируются.
+# Регистр имени имеет значение — функции хешируются case-sensitive.
+
+# --- Loading / process ---
+LoadLibraryA
+LoadLibraryW
+FreeLibrary
+GetProcAddress
+GetModuleHandleA
+GetModuleHandleW
+ExitProcess
+GetCurrentProcess
+GetCurrentProcessId
+GetCurrentThread
+GetCurrentThreadId
+TerminateProcess
+OpenProcess
+OpenThread
+
+# --- Memory ---
+VirtualAlloc
+VirtualAllocEx
+VirtualFree
+VirtualFreeEx
+VirtualProtect
+VirtualProtectEx
+VirtualQuery
+VirtualQueryEx
+HeapAlloc
+HeapFree
+HeapCreate
+HeapDestroy
+GetProcessHeap
+
+# --- Threads / synchronization ---
+CreateThread
+CreateRemoteThread
+ResumeThread
+SuspendThread
+GetThreadContext
+SetThreadContext
+WaitForSingleObject
+WaitForMultipleObjects
+CloseHandle
+CreateEventA
+CreateEventW
+SetEvent
+ResetEvent
+QueueUserAPC
+Sleep
+SleepEx
+GetTickCount
+GetTickCount64
+
+# --- File I/O ---
+CreateFileW
+CreateFileA
+ReadFile
+WriteFile
+DeleteFileW
+DeleteFileA
+GetFileSize
+SetFilePointer
+GetTempPathW
+GetTempFileNameW
+GetFileAttributesW
+
+# --- Memory mapping ---
+CreateFileMappingW
+MapViewOfFile
+UnmapViewOfFile
+
+# --- Process management ---
+CreateProcessW
+CreateProcessA
+InitializeProcThreadAttributeList
+UpdateProcThreadAttribute
+DeleteProcThreadAttributeList
+WaitForInputIdle
+
+# --- Process enumeration ---
+CreateToolhelp32Snapshot
+Process32FirstW
+Process32NextW
+Module32FirstW
+Module32NextW
+Thread32First
+Thread32Next
+
+# --- Process / memory I/O ---
+WriteProcessMemory
+ReadProcessMemory
+FlushInstructionCache
+
+# --- Strings ---
+lstrlenW
+lstrlenA
+lstrcpyW
+lstrcpyA
+lstrcatW
+lstrcmpW
+lstrcmpiW
+lstrcmpiA
+MultiByteToWideChar
+WideCharToMultiByte
+
+# --- DLL helpers ---
+DisableThreadLibraryCalls
+
+# --- Errors ---
+GetLastError
+SetLastError
+
+# --- TLS ---
+TlsAlloc
+TlsGetValue
+TlsSetValue
+TlsFree

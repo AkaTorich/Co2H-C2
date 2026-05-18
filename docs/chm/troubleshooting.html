@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="ru"><head>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<title>Диагностика</title>
+<link rel="stylesheet" href="style.css">
+</head><body>
+<nav class="crumbs"><a href="index.html">Главная</a> &raquo; Диагностика</nav>
+
+<h1>Диагностика и типовые проблемы</h1>
+
+<h2 id="auth-failed">Клиент &mdash; Authentication failed</h2>
+<ul>
+<li>Проверить <code>operator.crt</code> подписан тем же CA, что и <code>server.crt</code>.</li>
+<li>Username/password совпадают с тем, что задано на teamserver'е.</li>
+<li>Время на клиенте и сервере не разъезжается &gt; 5 мин (TLS).</li>
+</ul>
+
+<h2 id="no-beacon">Beacon не появляется в Sessions</h2>
+<ul>
+<li>Listener реально слушает порт &mdash; проверить <code>netstat -ano | findstr :443</code>.</li>
+<li>Ключ listener'а в beacon'е совпадает с тем, что отображается во вкладке Listeners.
+Если teamserver был перезапущен &mdash; ключ сменился, beacon нужно перегенерировать.</li>
+<li>Файрвол / SmartScreen блокируют <code>payload.exe</code>. Проверить, что
+исполняемый файл не помещён в карантин антивирусом.</li>
+</ul>
+
+<h2 id="ea-hr">execute-assembly: hr=0x80131522</h2>
+<p>Сборка не подходит для CLR v4 (например .NET 6). Перекомпилировать под
+<code>--targetframework net48</code> или <code>net4.8</code>.</p>
+
+<h2 id="ea-empty">execute-assembly: вывод пустой</h2>
+<p>Stdout сборки в текущем варианте не перехватывается. Используйте
+<code>spawnto</code> для запуска в дочернем процессе или модифицируйте
+сборку, чтобы она писала результат в файл/socket.</p>
+
+<h2 id="apc-zero">inject_apc &mdash; APCs queued: 0</h2>
+<p>В целевом процессе нет ни одного потока в alertable wait. Подойдут
+<code>explorer.exe</code>, <code>svchost.exe</code> с
+<code>NetSvcs</code>; не подойдёт <code>notepad.exe</code> в idle.</p>
+
+<h2 id="bof-crash">BOF падает</h2>
+<p>COFF собран не для x64 или содержит неподдерживаемые типы релокаций.
+Использовать <code>x86_64-w64-mingw32-gcc -c</code> или MSVC с <code>/c /favor:AMD64</code>.
+Проверить целевую архитектуру через <code>dumpbin /headers</code>.</p>
+
+<h2 id="sentinel">Generate artifact &mdash; sentinel not found</h2>
+<p>Шаблон beacon'а собран без области для подстановки конфигурации.
+Использовать стандартный шаблон <code>beacon.dll</code> / <code>beacon.exe</code>
+из дистрибутива.</p>
+
+</body></html>

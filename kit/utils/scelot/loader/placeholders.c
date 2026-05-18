@@ -1,0 +1,26 @@
+// Placeholder values that the generator overwrites in stub_<arch>.bin at
+// build time. Plain volatile const arrays (no __declspec(allocate)) so the
+// linker places them in .rdata and the compiler emits direct RIP-relative
+// references — required because we extract just .text into the shellcode
+// blob and __ImageBase doesn't exist at runtime.
+//
+// /MERGE:.rdata=.text in the stub link line moves these into the .text
+// section so they're part of the extracted blob.
+#include <stdint.h>
+
+volatile const uint32_t k_stub_size = 0xA5A5A501u;
+
+volatile const uint8_t k_inst_key[16] = {
+    0xC0,0xDE,0xC0,0xDE,0xC0,0xDE,0xC0,0xDE,
+    0xC0,0xDE,0xC0,0xDE,0xC0,0xDE,0xC0,0xDE
+};
+
+volatile const uint8_t k_inst_iv[16] = {
+    0xBA,0xAD,0xF0,0x0D,0xBA,0xAD,0xF0,0x0D,
+    0xBA,0xAD,0xF0,0x0D,0xBA,0xAD,0xF0,0x0D
+};
+
+volatile const uint8_t k_key_mask[16] = {
+    0xF0,0x0D,0xBE,0xEF,0xF0,0x0D,0xBE,0xEF,
+    0xF0,0x0D,0xBE,0xEF,0xF0,0x0D,0xBE,0xEF
+};

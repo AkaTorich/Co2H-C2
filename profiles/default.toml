@@ -1,0 +1,30 @@
+# Co2H default HTTPS malleable profile.
+# Parsed by server/listeners/https/MalleableProfile.cpp.
+
+[http-get]
+uri_checkin     = "/search"
+uri_task        = "/api/feed"
+verb            = "GET"
+metadata_cookie = "sid"
+
+[http-get.client_headers]
+"User-Agent"      = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
+"Accept"          = "text/html,application/xhtml+xml"
+"Accept-Language" = "en-US,en;q=0.9"
+
+[http-post]
+uri  = "/submit"
+verb = "POST"
+
+[http-post.client_headers]
+"Content-Type" = "application/octet-stream"
+
+[server]
+status       = 200
+content_type = "text/html; charset=utf-8"
+wrap_prefix  = ""
+wrap_suffix  = ""
+
+[server.headers]
+"Server"       = "nginx"
+"Cache-Control"= "no-cache"

@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="ru"><head>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<title>Консоль beacon'а</title>
+<link rel="stylesheet" href="style.css">
+</head><body>
+<nav class="crumbs"><a href="index.html">Главная</a> &raquo; Консоль</nav>
+
+<h1>Консоль beacon'а</h1>
+
+<p>Нижняя часть главного окна — REPL, отправляющий команды активному beacon'у
+по очереди задач. Вывод приходит асинхронно при следующем check-in'е.</p>
+
+<h2 id="header">Заголовок</h2>
+<table>
+<tr><td><code>No beacon selected</code></td><td>Beacon не выбран.</td></tr>
+<tr><td><code>beacon &lt;id&gt;</code></td><td>Активный beacon, обычный режим.</td></tr>
+<tr><td><code>beacon &lt;id&gt; [interactive shell]</code></td><td>Интерактивный <code>cmd.exe</code> на цели.</td></tr>
+</table>
+
+<h2 id="hints">Подсказка команд</h2>
+<p>При наборе текста над полем ввода всплывает popup:</p>
+<ul>
+<li><b>Префиксный ввод</b> (например <code>exec</code>) &rarr; список совпадений (до 8): имя + аргументы + краткое описание.</li>
+<li><b>Имя + пробел</b> (например <code>spawnto&nbsp;</code>) &rarr; детальная подсказка по этой команде.</li>
+</ul>
+<p>Подсказка скрывается на пустом вводе, после <kbd>Enter</kbd> и в интерактивном shell.</p>
+
+<h2 id="shell">Интерактивный shell</h2>
+<p><code>shell</code> без аргументов запускает живой <code>cmd.exe</code> на цели.
+Каждая строка отправляется на STDIN <code>cmd.exe</code>, вывод печатается в консоль.
+Команда <code>exit</code> внутри интерактивного режима закрывает <code>cmd.exe</code>,
+не убивая beacon.</p>
+
+<h2 id="paths">Пути с пробелами</h2>
+<p>Везде, где принимается несколько аргументов, пути с пробелами заключаются в двойные кавычки:</p>
+<pre>upload "C:\loot\report doc.docx" "C:\Windows\Temp\r.docx"</pre>
+
+<h2 id="history">История команд</h2>
+<p>Все введённые команды доступны в текущей сессии клиента стрелками
+<kbd>↑</kbd> / <kbd>↓</kbd> и не сохраняются между запусками.</p>
+
+<h2 id="tabs">Вкладки консоли</h2>
+<p>Каждый beacon получает собственную вкладку в нижней панели консоли.
+При двойном клике по сессии (или через <b>Interact</b>) открывается вкладка
+для этого beacon'а. Переключение между beacon'ами — клик по заголовку вкладки.</p>
+<ul>
+<li><b>Переименование</b> — двойной клик по заголовку вкладки открывает поле ввода
+    для задания произвольного имени. Пустое значение возвращает имя по умолчанию
+    (<code>user@host (id)</code>).</li>
+<li><b>Буфер</b> — каждая вкладка хранит до 25&nbsp;000 строк. При превышении
+    старые строки отбрасываются. Прокрутка — стандартное колесо мыши.</li>
+</ul>
+
+<h2 id="colors">Цвета</h2>
+<table>
+<tr><th>Цвет</th><th>Значение</th></tr>
+<tr><td><span style="color:#60a5fa">синий</span></td><td>эхо введённой команды</td></tr>
+<tr><td><span style="color:#c8d4e8">светло-серый</span></td><td>обычный вывод beacon'а</td></tr>
+<tr><td><span style="color:#f87171">красный</span></td><td>ошибка beacon'а или клиента</td></tr>
+</table>
+
+<h2 id="ansi">ANSI-раскраска</h2>
+<p>Консоль распознаёт ANSI escape-последовательности (<code>ESC[...m</code>)
+в выводе beacon'а и отображает цветной текст. Это позволяет видеть раскрашенный
+вывод таких инструментов как <code>linpeas</code>, <code>pspy</code>,
+<code>nmap --color</code> и подобных — без потери цветовой разметки.</p>
+
+<p>Поддерживаются:</p>
+<ul>
+<li>Стандартные 16 цветов (SGR 30–37, 40–47, 90–97, 100–107)</li>
+<li>Расширенная палитра 256 цветов (SGR 38;5;N / 48;5;N)</li>
+<li>Атрибуты: жирный (<code>ESC[1m</code>), курсив (<code>ESC[3m</code>),
+    подчёркивание (<code>ESC[4m</code>), сброс (<code>ESC[0m</code>)</li>
+</ul>
+
+</body></html>

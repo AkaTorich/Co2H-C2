@@ -1,0 +1,31 @@
+[OPTIONS]
+Compatibility=1.1 or later
+Compiled file=co2h.chm
+Contents file=co2h.hhc
+Index file=co2h.hhk
+Default topic=index.html
+Display compile progress=Yes
+Full-text search=Yes
+Language=0x419 Russian
+Title=Co2H — руководство оператора
+
+[FILES]
+index.html
+getting-started.html
+ui-overview.html
+console.html
+commands.html
+commands-linux.html
+teamserver.html
+listeners.html
+profiles.html
+artifact-gen.html
+troubleshooting.html
+plugin-api.html
+scripting.html
+sleepmask-kit.html
+artifact-kit.html
+processinject-kit.html
+style.css
+
+[INFOTYPES]

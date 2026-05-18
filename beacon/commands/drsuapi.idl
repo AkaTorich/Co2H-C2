@@ -1,0 +1,202 @@
+// MS-DRSR minimal IDL — DRSBind (opnum 0) + DRSGetNCChanges (opnum 3) + DRSUnbind (opnum 4).
+// Windows types declared BEFORE the interface block (MIDL rule).
+// Conformant fields use pointer form  [size_is(n)] type* field  (not fixed arrays — MIDL2299).
+
+// ---- Windows base types ----
+typedef unsigned long   DWORD;
+typedef unsigned long   ULONG;
+typedef unsigned short  USHORT;
+typedef long            LONG;
+typedef wchar_t         WCHAR;
+
+// GUID: cpp_quote-гарды уходят verbatim в drsuapi.h; guiddef.h (через rpcndr.h) ставит
+// GUID_DEFINED первым — тогда наш typedef пропускается, redefinition не возникает.
+cpp_quote("#ifndef GUID_DEFINED")
+cpp_quote("#define GUID_DEFINED")
+typedef struct {
+    unsigned long  Data1;
+    unsigned short Data2;
+    unsigned short Data3;
+    byte           Data4[8];
+} GUID;
+cpp_quote("#endif /* GUID_DEFINED */")
+
+// 64-bit timer
+typedef hyper HYPER_USEC_TIMER;
+
+// ---- DRS_EXTENSIONS ----
+typedef struct {
+    DWORD cb;
+    [size_is(cb)] byte* rgb;
+} DRS_EXTENSIONS;
+
+// ---- DSNAME ----
+typedef struct {
+    ULONG  structLen;
+    ULONG  SidLen;
+    GUID   Guid;
+    byte   Sid[28];
+    USHORT NameLen;
+    [size_is(NameLen + 1)] WCHAR* StringName;
+} DSNAME;
+
+// ---- SCHEMA_PREFIX_TABLE ----
+typedef struct {
+    DWORD length;
+    [size_is(length), unique] byte* elements;
+} SCHEMA_PREFIX_OID;
+
+typedef struct {
+    DWORD ndx;
+    SCHEMA_PREFIX_OID prefix;
+} SCHEMA_PREFIX;
+
+typedef struct {
+    DWORD PrefixCount;
+    [size_is(PrefixCount), unique] SCHEMA_PREFIX* pSchema;
+} SCHEMA_PREFIX_TABLE;
+
+// ---- UPTODATE cursors & vectors ----
+typedef struct {
+    GUID  uuidDsa;
+    hyper usnHighPropUpdate;
+} UPTODATE_CURSOR_V1;
+
+typedef struct {
+    DWORD dwVersion;
+    hyper timeLastSyncSuccess;
+    DWORD cNumCursors;
+    [size_is(cNumCursors)] UPTODATE_CURSOR_V1* rgCursors;
+} UPTODATE_VECTOR_V1_EXT;
+
+typedef struct {
+    GUID  uuidDsa;
+    hyper usnHighPropUpdate;
+    hyper timeLastSyncSuccess;
+} UPTODATE_CURSOR_V2;
+
+typedef struct {
+    DWORD dwVersion;
+    DWORD dwReserved1;
+    DWORD cNumCursors;
+    [size_is(cNumCursors)] UPTODATE_CURSOR_V2* rgCursors;
+} UPTODATE_VECTOR_V2_EXT;
+
+// ---- PARTIAL_ATTR_VECTOR_V1_EXT ----
+typedef struct {
+    DWORD dwVersion;
+    DWORD dwReserved1;
+    DWORD cNumProps;
+    [size_is(cNumProps)] DWORD* rgPartialAttr;
+} PARTIAL_ATTR_VECTOR_V1_EXT;
+
+// ---- DRS_MSG_GETCHGREQ / REPLY ----
+typedef struct {
+    GUID  uuidDsaObjDest;
+    GUID  uuidInvocIdSrc;
+    [unique] DSNAME* pNC;
+    [unique] UPTODATE_VECTOR_V1_EXT* pUpToDateVecDest;
+    SCHEMA_PREFIX_TABLE PrefixTableDest;
+    ULONG ulFlags;
+    ULONG cMaxObjects;
+    ULONG cMaxBytes;
+    ULONG ulExtendedOp;
+    HYPER_USEC_TIMER liFsmoInfo;
+    [unique] PARTIAL_ATTR_VECTOR_V1_EXT* pPartialAttrSet;
+    [unique] PARTIAL_ATTR_VECTOR_V1_EXT* pPartialAttrSetMove;
+} DRS_MSG_GETCHGREQ_V8;
+
+typedef [switch_type(DWORD)] union {
+    [case(8)] DRS_MSG_GETCHGREQ_V8 V8;
+} DRS_MSG_GETCHGREQ;
+
+typedef struct {
+    DWORD valLen;
+    [size_is(valLen), unique] byte* pVal;
+} ATTRVAL;
+
+typedef struct {
+    DWORD valCount;
+    [size_is(valCount), unique] ATTRVAL* pAVal;
+} ATTRVALBLOCK;
+
+typedef struct {
+    DWORD attrTyp;
+    ATTRVALBLOCK AttrVal;
+} ATTR;
+
+typedef struct {
+    DWORD attrCount;
+    [size_is(attrCount), unique] ATTR* pAttr;
+} ATTRBLOCK;
+
+typedef struct {
+    [unique] DSNAME* pName;
+    ULONG ulFlags;
+    ATTRBLOCK AttrBlock;
+} ENTINF;
+
+typedef struct REPLENTINFLIST_s {
+    ENTINF Entinf;
+    [unique] struct REPLENTINFLIST_s* pNextEntInf;
+    [unique] byte* pMetaDataExt;
+} REPLENTINFLIST;
+
+typedef struct {
+    DWORD  dwVersion;
+    DWORD  dwReserved1;
+    GUID   uuidDsaObjSrc;
+    GUID   uuidInvocIdSrc;
+    [unique] DSNAME* pNC;
+    ULONG  ulExtendedRet;
+    ULONG  cNumObjects;
+    ULONG  cNumBytes;
+    [unique] REPLENTINFLIST* pObjects;
+    long   fMoreData;
+    ULONG  cNumNcSizeObjects;
+    HYPER_USEC_TIMER cbNcSizeBytes;
+    SCHEMA_PREFIX_TABLE PrefixTableSrc;
+    [unique] UPTODATE_VECTOR_V2_EXT* pUpToDateVecSrc;
+    DWORD  dwDRSError;
+} DRS_MSG_GETCHGREPLY_V6;
+
+typedef [switch_type(DWORD)] union {
+    [case(6)] DRS_MSG_GETCHGREPLY_V6 V6;
+} DRS_MSG_GETCHGREPLY;
+
+// ================================================================
+[
+    uuid(e3514235-4b06-11d1-ab04-00c04fc2dcd2),
+    version(4.0)
+]
+interface drsuapi
+{
+    typedef [context_handle] void* DRS_HANDLE;
+
+    // opnum 0: IDL_DRSBind
+    ULONG IDL_DRSBind(
+        [in]         handle_t         rpc_handle,
+        [in, unique] GUID*            puuidClientDsa,
+        [in, unique] DRS_EXTENSIONS*  pextClient,
+        [out]        DRS_EXTENSIONS** ppextServer,
+        [out, ref]   DRS_HANDLE*      phDrs
+    );
+
+    // opnum 1, 2 — stubs
+    void _Opnum1(void);
+    void _Opnum2(void);
+
+    // opnum 3: IDL_DRSGetNCChanges
+    ULONG IDL_DRSGetNCChanges(
+        [in, ref]  DRS_HANDLE*  phDrs,
+        [in]       DWORD        dwInVersion,
+        [in,  switch_is(dwInVersion)]  DRS_MSG_GETCHGREQ*   pmsgIn,
+        [out, ref] DWORD*       pdwOutVersion,
+        [out, ref, switch_is(*pdwOutVersion)] DRS_MSG_GETCHGREPLY* pmsgOut
+    );
+
+    // opnum 4: IDL_DRSUnbind
+    ULONG IDL_DRSUnbind(
+        [in, out, ref] DRS_HANDLE* phDrs
+    );
+}

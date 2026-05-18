@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="ru"><head>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<title>Co2H — руководство оператора</title>
+<link rel="stylesheet" href="style.css">
+</head><body>
+
+<h1>Co2H — руководство оператора</h1>
+
+<p>
+<b>Co2H</b> — C2-фреймворк (аналог Cobalt Strike) для red team операций.
+Доступен в двух версиях: <b>Windows</b> и <b>Linux</b> — teamserver и клиент работают
+на обеих платформах, beacon'ы генерируются под целевую ОС.
+Состоит из трёх компонентов:
+</p>
+
+<table>
+<tr><th>Компонент</th><th>Описание</th></tr>
+<tr><td><code>teamserver</code></td><td>Серверная часть: HTTPS/TCP/SMB/DNS-listener'ы, БД SQLite, mTLS для операторов. Работает на Windows и Linux.</td></tr>
+<tr><td><code>client</code> (Qt6)</td><td>Графическая консоль оператора: Sessions / Listeners / Graph / Downloads / Credentials / Chat / Logs + REPL. Работает на Windows и Linux.</td></tr>
+<tr><td><code>beacon</code></td><td>Полезная нагрузка: Windows (x64/x86 EXE/DLL), Linux (x64/ARM64/ARM32 ELF/SO), macOS (Universal/ARM64/x64 Mach-O/DYLIB).</td></tr>
+</table>
+
+<h2>Содержание</h2>
+<ul class="toc">
+<li><a href="getting-started.html">Быстрый старт</a></li>
+<li><a href="ui-overview.html">Интерфейс оператора (окно, меню, панель, вкладки)</a></li>
+<li><a href="console.html">Консоль beacon'а и подсказка команд</a></li>
+<li><a href="commands.html">Справочник команд</a></li>
+<li><a href="teamserver.html">Teamserver — конфигурация и запуск</a></li>
+<li><a href="listeners.html">Listener'ы (HTTPS, TCP, SMB, DNS, Pivot, SOCKS5, Reverse Port Forward)</a></li>
+<li><a href="profiles.html">Malleable-профили</a></li>
+<li><a href="artifact-gen.html">Генератор артефактов</a></li>
+<li><a href="sleepmask-kit.html">Sleep Mask Kit</a></li>
+<li><a href="processinject-kit.html">Process Inject Kit</a></li>
+<li><a href="plugin-api.html">Plugin API — разработка плагинов</a></li>
+<li><a href="troubleshooting.html">Диагностика и типовые проблемы</a></li>
+</ul>
+
+</body></html>

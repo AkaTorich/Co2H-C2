@@ -1,0 +1,16 @@
+C:\Users\psysh\OneDrive\Desktop\Co2H\kit\kit-editor\bin\Debug\KitEditor.exe
+C:\Users\psysh\OneDrive\Desktop\Co2H\kit\kit-editor\bin\Debug\KitEditor.pdb
+C:\Users\psysh\OneDrive\Desktop\Co2H\kit\kit-editor\bin\Debug\ICSharpCode.AvalonEdit.dll
+C:\Users\psysh\OneDrive\Desktop\Co2H\kit\kit-editor\bin\Debug\ICSharpCode.AvalonEdit.xml
+C:\Users\psysh\OneDrive\Desktop\Co2H\kit\kit-editor\obj\Debug\KitEditor.csproj.AssemblyReference.cache
+C:\Users\psysh\OneDrive\Desktop\Co2H\kit\kit-editor\obj\Debug\MainWindow.baml
+C:\Users\psysh\OneDrive\Desktop\Co2H\kit\kit-editor\obj\Debug\Icons.baml
+C:\Users\psysh\OneDrive\Desktop\Co2H\kit\kit-editor\obj\Debug\App.baml
+C:\Users\psysh\OneDrive\Desktop\Co2H\kit\kit-editor\obj\Debug\MainWindow.g.cs
+C:\Users\psysh\OneDrive\Desktop\Co2H\kit\kit-editor\obj\Debug\App.g.cs
+C:\Users\psysh\OneDrive\Desktop\Co2H\kit\kit-editor\obj\Debug\KitEditor_MarkupCompile.cache
+C:\Users\psysh\OneDrive\Desktop\Co2H\kit\kit-editor\obj\Debug\KitEditor.g.resources
+C:\Users\psysh\OneDrive\Desktop\Co2H\kit\kit-editor\obj\Debug\KitEditor.csproj.CoreCompileInputs.cache
+C:\Users\psysh\OneDrive\Desktop\Co2H\kit\kit-editor\obj\Debug\KitEditor.csproj.Up2Date
+C:\Users\psysh\OneDrive\Desktop\Co2H\kit\kit-editor\obj\Debug\KitEditor.exe
+C:\Users\psysh\OneDrive\Desktop\Co2H\kit\kit-editor\obj\Debug\KitEditor.pdb

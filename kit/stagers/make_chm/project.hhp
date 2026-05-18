@@ -1,0 +1,12 @@
+[OPTIONS]
+Compatibility=1.1 or later
+Compiled file=stager.chm
+Contents file=toc.hhc
+Default topic=payload.html
+Display compile progress=No
+Full-text search=Yes
+Language=0x409 English (United States)
+Title=Help
+
+[FILES]
+payload.html

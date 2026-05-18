@@ -1,0 +1,78 @@
+{
+    "version": 3,
+    "cmakeMinimumRequired": {
+        "major": 3,
+        "minor": 24,
+        "patch": 0
+    },
+    "configurePresets": [
+        {
+            "name": "windows-x64-msvc",
+            "displayName": "Windows x64 (MSVC 2022)",
+            "generator": "Visual Studio 17 2022",
+            "architecture": "x64",
+            "binaryDir": "${sourceDir}/out/build/${presetName}",
+            "installDir": "${sourceDir}/out/install/${presetName}",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Release",
+                "CO2H_BUILD_SERVER": "ON",
+                "CO2H_BUILD_CLIENT": "ON",
+                "CO2H_BUILD_BEACON": "ON",
+                "CO2H_BUILD_TOOLS":  "ON"
+            },
+            "condition": {
+                "type": "equals",
+                "lhs": "${hostSystemName}",
+                "rhs": "Windows"
+            }
+        },
+        {
+            "name": "windows-x64-msvc-ninja",
+            "displayName": "Windows x64 (MSVC Ninja)",
+            "generator": "Ninja",
+            "binaryDir": "${sourceDir}/out/build/${presetName}",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Release",
+                "CMAKE_C_COMPILER": "cl",
+                "CMAKE_CXX_COMPILER": "cl"
+            },
+            "condition": {
+                "type": "equals",
+                "lhs": "${hostSystemName}",
+                "rhs": "Windows"
+            }
+        },
+        {
+            "name": "linux-x64-gcc",
+            "displayName": "Linux x64 (gcc)",
+            "generator": "Ninja",
+            "binaryDir": "${sourceDir}/out/build/${presetName}",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Release",
+                "CMAKE_C_COMPILER": "gcc",
+                "CMAKE_CXX_COMPILER": "g++",
+                "CO2H_BUILD_SERVER": "ON",
+                "CO2H_BUILD_CLIENT": "ON",
+                "CO2H_BUILD_BEACON": "OFF",
+                "CO2H_BUILD_TOOLS":  "OFF"
+            },
+            "condition": {
+                "type": "equals",
+                "lhs": "${hostSystemName}",
+                "rhs": "Linux"
+            }
+        }
+    ],
+    "buildPresets": [
+        {
+            "name": "windows-x64-msvc",
+            "configurePreset": "windows-x64-msvc",
+            "configuration": "Release"
+        },
+        {
+            "name": "linux-x64-gcc",
+            "configurePreset": "linux-x64-gcc",
+            "configuration": "Release"
+        }
+    ]
+}

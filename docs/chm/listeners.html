@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="ru"><head>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<title>Listener'ы</title>
+<link rel="stylesheet" href="style.css">
+</head><body>
+<nav class="crumbs"><a href="index.html">Главная</a> &raquo; Listener'ы</nav>
+
+<h1>Listener'ы</h1>
+
+<h2 id="https">HTTPS</h2>
+<p>Базовый listener для C2-канала. Принимает три URI (настраиваются в malleable-профиле):</p>
+<table>
+<tr><th>URI</th><th>Метод</th><th>Назначение</th></tr>
+<tr><td><code>/search</code> (по умолчанию)</td><td>GET</td>
+    <td>Check-in beacon'а.</td></tr>
+<tr><td><code>/api/feed</code></td><td>GET</td>
+    <td>Получение задач.</td></tr>
+<tr><td><code>/submit</code></td><td>POST</td>
+    <td>Сабмит результата.</td></tr>
+</table>
+<p>Создаётся через UI: <b>Listeners</b> &rarr; <b>New</b> &rarr; Kind: <b>HTTPS</b>.
+Указать host, port, URI-пути и опциональный malleable-профиль.
+Listener запускается немедленно и отображается в таблице Listeners.<br>
+Альтернатива: статическая запись <code>[[listeners]]</code> в <code>srv.toml</code> — запускается при старте teamserver'а автоматически.</p>
+
+<h2 id="tcp">TCP (raw)</h2>
+<p>Beacon подключается к teamserver'у напрямую по TCP без HTTP-обёртки.
+Удобен для внутренней сети где HTTPS-трафик фильтруется или где нужна меньшая сигнатура.</p>
+<p>Создаётся динамически через UI: <b>Listeners</b> &rarr; <b>New</b> &rarr; Kind: <b>TCP (raw)</b>.
+Указать bind host и порт; ключ генерируется сервером и отображается во вкладке Listeners.</p>
+<p>Транспорт выбирается beacon'ом автоматически: если адрес check-in начинается
+с <code>tcp://</code> — используется этот listener.</p>
+
+<h2 id="smb">SMB (named pipe)</h2>
+<p>Beacon общается через именованный канал Windows — для lateral movement внутри сети
+без выхода в интернет. Работает только на Windows.</p>
+<p>Создаётся через UI: <b>Listeners</b> &rarr; <b>New</b> &rarr; Kind: <b>SMB (named pipe)</b>.
+Указать имя pipe (по умолчанию <code>co2h</code>).</p>
+<p>Beacon выбирает SMB-транспорт если адрес check-in начинается с <code>smb://</code>.
+При генерации артефакта из GUI это выставляется автоматически.</p>
+
+<h2 id="dns">DNS (UDP)</h2>
+<p>Beacon отправляет данные через DNS-запросы типа A и получает задачи через TXT-записи.
+Весь трафик маскируется под легитимные DNS-запросы; teamserver выступает
+авторитарным NS-сервером для выделенного поддомена.</p>
+<p>Создаётся через UI: <b>Listeners</b> &rarr; <b>New listener</b> &rarr; Kind: <b>DNS (UDP)</b>.
+Указать:</p>
+<table>
+<tr><th>Параметр</th><th>Описание</th></tr>
+<tr><td>Bind host</td><td>Адрес, на котором teamserver слушает UDP (обычно <code>0.0.0.0</code>)</td></tr>
+<tr><td>Port</td><td>UDP-порт (стандартный — <code>53</code>)</td></tr>
+<tr><td>C2 domain</td><td>Авторитарный поддомен, например <code>c2.example.com</code>.
+    В DNS-записях домена должна стоять NS-запись на IP teamserver'а.</td></tr>
+</table>
+<p>Транспорт выбирается beacon'ом автоматически: если адрес check-in начинается
+с <code>dns://</code> — используется DNS-транспорт. При генерации артефакта из GUI
+это выставляется автоматически.</p>
+
+<h4>Протокол</h4>
+<ul>
+<li><b>Загрузка (beacon → сервер)</b>: A-запросы вида
+    <code>&lt;d0_60hex&gt;.&lt;d1_60hex&gt;.&lt;type&gt;&lt;seq&gt;&lt;txid&gt;.&lt;domain&gt;</code>
+    — 60 байт полезной нагрузки на запрос.</li>
+<li><b>Завершение загрузки</b>: <code>fin.&lt;cnt&gt;.&lt;len&gt;.&lt;txid&gt;.&lt;domain&gt;</code>.</li>
+<li><b>Получение задач (сервер → beacon)</b>: TXT-запрос
+    <code>p.&lt;txid&gt;.&lt;domain&gt;</code> — ответ содержит зашифрованный фрейм задач
+    в hex-кодировке.</li>
+</ul>
+<p>Все фреймы шифруются AES-GCM с listener-ключом; per-session ключ оборачивается
+RSA-OAEP при первом check-in (аналогично HTTPS/TCP).</p>
+
+<h2 id="pivot">Pivot</h2>
+<p>Raw TCP-канал между beacon'ом и teamserver'ом — «ретранслятор»
+для beacon'ов в изолированных сегментах сети. Активируется командой
+<code>tcp_pivot &lt;host&gt; &lt;port&gt;</code> на «головном» beacon'е.</p>
+<p>Создаётся через UI: <b>Listeners</b> &rarr; <b>New</b> &rarr; Kind: <b>Pivot (SOCKS5)</b>.
+Указать bind host, SOCKS-порт и pivot-порт (должны отличаться).</p>
+
+<h2 id="socks5">SOCKS5</h2>
+<p>Reverse proxy через beacon: открывает локальный SOCKS5-порт на стороне оператора,
+весь трафик туннелируется через beacon в целевую сеть. Создаётся через
+Sessions &rarr; правый клик &rarr; <b>Start SOCKS5</b>.</p>
+
+<h2 id="rportfwd">Reverse Port Forward</h2>
+<p>Teamserver открывает TCP-порт и ретранслирует входящие соединения через указанный beacon
+к <code>rhost:rport</code>. Создаётся через контекстное меню beacon'а в Sessions, а не
+через вкладку Listeners.</p>
+<table>
+<tr><th>Параметр</th><th>Значение</th></tr>
+<tr><td>Bind host</td><td>Адрес, на котором teamserver откроет TCP-порт (<code>0.0.0.0</code> для всех интерфейсов)</td></tr>
+<tr><td>Bind port</td><td>Порт на teamserver'е, к которому подключается внешний клиент</td></tr>
+<tr><td>Rhost</td><td>Хост в сети beacon'а, к которому он подключается</td></tr>
+<tr><td>Rport</td><td>Порт на rhost</td></tr>
+<tr><td>Beacon ID</td><td>Привязан к конкретному beacon'у; при потере beacon'а listener закрывается</td></tr>
+</table>
+
+<h2 id="fallback">Fallback C2 (автоматическая ротация каналов)</h2>
+<p>Beacon может быть настроен на автоматическое переключение между несколькими
+C2-серверами при потере связи с текущим. При генерации артефакта в поле
+<b>Fallback C2</b> указываются до 4 резервных каналов (по одному на строку):</p>
+<pre>host:port
+host:port:uri</pre>
+<p>Примеры:</p>
+<pre>10.0.0.5:443
+backup.example.com:8443
+192.168.1.100:4444:tcp://
+ns1.example.com:53:dns://c2.example.com</pre>
+
+<h4>Логика переключения</h4>
+<ol>
+<li>Beacon работает с основным каналом.</li>
+<li>Если 3 попытки подряд (check-in или получение задач) провалились —
+    переключается на следующий канал.</li>
+<li>Цепочка: основной &rarr; fb[0] &rarr; fb[1] &rarr; fb[2] &rarr; fb[3] &rarr;
+    основной &rarr; ... (бесконечный цикл).</li>
+<li>На новом канале beacon выполняет повторный check-in.</li>
+<li>При первом успешном ответе счётчик неудач сбрасывается — beacon остаётся
+    на текущем канале.</li>
+</ol>
+
+<h4>Требование: общий ключ</h4>
+<p>Все серверы в цепочке fallback <b>должны использовать один и тот же
+listener key</b>. Иначе beacon не сможет пройти check-in на резервном сервере.</p>
+<p>Как настроить:</p>
+<ol>
+<li>Запустить первый сервер с listener'ом — ключ сгенерируется автоматически.</li>
+<li>Скопировать ключ: вкладка <b>Listeners</b> &rarr; правый клик &rarr;
+    <b>Copy listener key</b>.</li>
+<li>В конфиге резервного сервера (<code>srv.toml</code>) указать скопированный ключ:
+<pre>[[listeners]]
+name         = "fallback"
+kind         = "https"
+bind         = "0.0.0.0"
+port         = 443
+listener_key = "вставить_64_hex_символа"</pre></li>
+</ol>
+<p>Если поле <code>listener_key</code> не указано — сервер генерирует ключ
+самостоятельно (обычный режим работы без fallback).</p>
+
+<h2 id="lifecycle">Жизненный цикл</h2>
+<ol>
+<li>Типы HTTPS, TCP, SMB, DNS и Pivot создаются через кнопку <b>New listener</b>
+    в toolbar'е клиента или через кнопку <b>Add</b> во вкладке <b>Listeners</b>.
+    SOCKS5 и Reverse Port Forward создаются через контекстное меню beacon'а
+    (<b>Sessions &rarr; правый клик</b>).</li>
+<li>Статическая альтернатива для HTTPS: секция <code>[[listeners]]</code> в <code>srv.toml</code>
+    — listener стартует вместе с teamserver'ом без участия клиента.</li>
+<li>Ключ listener'а доступен во вкладке <b>Listeners</b> (колонка Key) и используется
+    при генерации артефактов.</li>
+<li>Для удаления listener'а — выбрать строку и нажать <b>Remove</b>.</li>
+<li>Вкладка <b>Listeners</b> показывает: имя, тип, адрес привязки, ключ.</li>
+</ol>
+
+</body></html>

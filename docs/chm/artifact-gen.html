@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="ru"><head>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<title>Artifact Generator</title>
+<link rel="stylesheet" href="style.css">
+</head><body>
+<nav class="crumbs"><a href="index.html">Главная</a> &raquo; Artifact Generator</nav>
+
+<h1>Генератор артефактов</h1>
+
+<p>Артефакт — это шаблон beacon'а с уже встроенными адресом C2 и ключом listener'а.
+Поддерживаются две целевые ОС и четыре транспорта.</p>
+
+<h3>Шаблоны по целевой ОС</h3>
+<p>Все шаблоны лежат в каталоге <code>bin\beacons\</code> рядом с клиентом и artifact-gen.
+Выбор шаблона полностью автоматический — достаточно указать целевую ОС, формат и архитектуру
+в диалоге генерации.</p>
+<table>
+<tr><th>ОС</th><th>Шаблон</th><th>Формат</th><th>Архитектура</th></tr>
+<tr><td rowspan="4">Windows</td>
+    <td><code>beacon64.exe</code></td><td>PE EXE</td><td>x64</td></tr>
+<tr><td><code>beacon64.dll</code></td><td>PE DLL</td><td>x64</td></tr>
+<tr><td><code>beacon32.exe</code></td><td>PE EXE</td><td>x86</td></tr>
+<tr><td><code>beacon32.dll</code></td><td>PE DLL</td><td>x86</td></tr>
+<tr><td rowspan="6">Linux</td>
+    <td><code>beacon-linux64</code></td><td>ELF</td><td>x86_64</td></tr>
+<tr><td><code>beacon-linux64.so</code></td><td>ELF SO</td><td>x86_64</td></tr>
+<tr><td><code>beacon-linux-arm64</code></td><td>ELF</td><td>ARM64 (aarch64)</td></tr>
+<tr><td><code>beacon-linux-arm64.so</code></td><td>ELF SO</td><td>ARM64 (aarch64)</td></tr>
+<tr><td><code>beacon-linux-arm32</code></td><td>ELF</td><td>ARM32 (armhf)</td></tr>
+<tr><td><code>beacon-linux-arm32.so</code></td><td>ELF SO</td><td>ARM32 (armhf)</td></tr>
+<tr><td rowspan="6">macOS</td>
+    <td><code>beacon-macos</code></td><td>Mach-O</td><td>Universal (arm64 + x64)</td></tr>
+<tr><td><code>beacon-macos.dylib</code></td><td>DYLIB</td><td>Universal (arm64 + x64)</td></tr>
+<tr><td><code>beacon-macos-arm64</code></td><td>Mach-O</td><td>ARM64 (Apple Silicon)</td></tr>
+<tr><td><code>beacon-macos-arm64.dylib</code></td><td>DYLIB</td><td>ARM64 (Apple Silicon)</td></tr>
+<tr><td><code>beacon-macos-x64</code></td><td>Mach-O</td><td>x86_64 (Intel)</td></tr>
+<tr><td><code>beacon-macos-x64.dylib</code></td><td>DYLIB</td><td>x86_64 (Intel)</td></tr>
+</table>
+<p>Итого <b>16 шаблонов</b> для трёх ОС. Все доступны через диалог генерации артефакта
+в клиенте (<b>Toolbar &rarr; Generate artifact</b>): выбор ОС автоматически
+обновляет списки форматов и архитектур.</p>
+
+<p>Генерация полностью интегрирована в клиент — отдельные команды или утилиты запускать не нужно.
+Подробнее о диалоге: <a href="ui-overview.html#artifact-dialog">Диалог генерации артефакта</a>.</p>
+
+<h2 id="gui">Создание из клиента</h2>
+<p>Toolbar &rarr; <b>Generate artifact</b>:</p>
+<ol>
+<li>В dropdown <b>Listener</b> выбрать нужный listener из списка — ключ и параметры
+    подставляются автоматически.</li>
+<li>Поля меняются по типу listener'а:
+    <ul>
+    <li><b>HTTPS</b> — C2 host и port.</li>
+    <li><b>TCP</b> — C2 host и port; beacon выберет TCP-транспорт автоматически.</li>
+    <li><b>SMB</b> — имя pipe (берётся из listener'а автоматически) и <b>Server host</b>
+        — IP или hostname машины, к pipe которого подключится beacon.</li>
+    <li><b>DNS</b> — поле <b>C2 domain</b> (заполняется из listener'а автоматически).
+        Поле <b>C2 host</b> скрыто — IP teamserver'а подставляется автоматически
+        из адреса текущего подключения.</li>
+    </ul>
+</li>
+<li><i>(Необязательно)</i> В поле <b>Fallback C2</b> указать резервные серверы
+    (до 4, по одному на строку, формат <code>host:port[:uri]</code>).
+    См. <a href="listeners.html#fallback">Fallback C2</a>.</li>
+<li>В поле <b>Target OS</b> выбрать <code>Windows</code>, <code>Linux</code> или <code>macOS</code>.</li>
+<li>Выбрать формат и архитектуру:
+    <ul>
+    <li><b>Windows</b> — EXE / DLL, x64 / x86.</li>
+    <li><b>Linux</b> — ELF / SO, x64 / ARM64 / ARM32.</li>
+    <li><b>macOS</b> — Mach-O / DYLIB, Universal (arm64 + x64) / ARM64 / x64.</li>
+    </ul></li>
+<li>Указать путь сохранения и нажать <b>OK</b>. Прогресс и сообщения отображаются во вкладке <b>Logs</b>.</li>
+</ol>
+
+<h2 id="transport">Выбор транспорта</h2>
+<p>Транспорт зашивается в beacon в момент генерации артефакта на основании типа
+выбранного listener'а — отдельно настраивать ничего не нужно:</p>
+<table>
+<tr><th>Тип listener'а</th><th>Транспорт beacon'а</th><th>uri_checkin</th></tr>
+<tr><td>HTTPS</td><td>HTTPS (TLS)</td><td><code>/search</code> (по профилю)</td></tr>
+<tr><td>TCP (raw)</td><td>TCP raw</td><td><code>tcp://</code></td></tr>
+<tr><td>SMB (named pipe)</td><td>SMB named pipe</td><td><code>smb://&lt;pipe&gt;</code></td></tr>
+<tr><td>DNS (UDP)</td><td>DNS TXT/A</td><td><code>dns://&lt;c2domain&gt;</code></td></tr>
+</table>
+
+<h2 id="relay-child">Генерация relay child beacon</h2>
+<p>Контекстное меню beacon'а (Sessions или Graph) &rarr; <b>Generate relay child beacon…</b>
+открывает диалог генерации дочернего артефакта, настроенного подключаться
+через выбранный родительский beacon.</p>
+
+<table>
+<tr><th>Поле</th><th>Описание</th></tr>
+<tr><td><b>Target OS</b></td><td>Целевая ОС дочернего beacon'а: <code>Windows</code> или <code>Linux</code>.</td></tr>
+<tr><td><b>Format</b></td><td><code>EXE</code> или <code>DLL</code> (только для Windows; при выборе Linux — скрыто).</td></tr>
+<tr><td><b>Architecture</b></td><td><code>x64</code> или <code>x86</code> (только для Windows; при выборе Linux — скрыто).</td></tr>
+<tr><td><b>Output</b></td><td>Путь сохранения файла. При выборе Linux расширение <code>.exe</code>/<code>.dll</code>
+    автоматически убирается.</td></tr>
+</table>
+
+<p>Артефакт генерируется с параметрами:</p>
+<ul>
+<li><b>Host</b> — IP родительского beacon'а (внутренний адрес цели).</li>
+<li><b>Port</b> — relay-порт, открытый на родительском beacon'е.</li>
+<li><b>Parent ID</b> — hex-идентификатор родительского beacon'а (патчится в <code>parent_id</code> структуры <code>BeaconState</code>).</li>
+<li><b>Транспорт</b> — raw TCP (<code>tcp://</code> в <code>uri_checkin</code>).</li>
+</ul>
+
+<div class="note">
+Перед генерацией дочернего артефакта необходимо открыть relay-порт на родительском beacon'е:
+контекстное меню &rarr; <b>Start relay port (chain pivot)…</b>.
+Дочерний beacon подключается к этому порту и получает доступ к teamserver'у
+через цепочку ретрансляции.
+</div>
+
+<h2 id="dns-prereq">Требования для DNS-артефакта</h2>
+<p>Для работы DNS C2 необходимо:</p>
+<ol>
+<li>Делегировать поддомен (например <code>c2.example.com</code>) на IP teamserver'а
+    через NS-запись у регистратора.</li>
+<li>Открыть UDP-порт 53 на файрволе teamserver'а.</li>
+<li>Создать DNS listener через <b>New listener → DNS (UDP)</b>, указав тот же поддомен
+    в поле <b>C2 domain</b>.</li>
+<li>Сгенерировать артефакт, выбрав этот DNS listener. Поле <b>C2 domain</b>
+    заполнится автоматически.</li>
+</ol>
+
+</body></html>

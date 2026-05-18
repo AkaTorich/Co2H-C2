@@ -1,0 +1,4 @@
+// resource.rc -- icon resource for ICOPatcher.exe itself.
+// ID 1 matches LoadIconW(hInst, MAKEINTRESOURCEW(1)) in ICOPatcher.cpp.
+
+1 ICON "patcher-icon.ico"

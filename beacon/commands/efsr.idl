@@ -1,0 +1,44 @@
+[
+    uuid(df1941c5-fe89-4e79-bf10-463657acf44d),
+    version(1.0)
+]
+interface efsrpc
+{
+    typedef struct {
+        unsigned long cbData;
+        [size_is(cbData)] unsigned char *pbData;
+    } EFSR_RPC_BLOB;
+
+    /* Opnum 0: EfsRpcOpenFileRaw — TOCTOU target */
+    long EfsRpcOpenFileRaw(
+        [in] handle_t binding_h,
+        [out] long *pvContext,
+        [in, string] wchar_t *FileName,
+        [in] long Flags
+    );
+
+    /* Opnum 1-12: placeholders */
+    long Opnum1Reserved(void);
+    long Opnum2Reserved(void);
+    long Opnum3Reserved(void);
+    long Opnum4Reserved(void);
+    long Opnum5Reserved(void);
+    long Opnum6Reserved(void);
+    long Opnum7Reserved(void);
+    long Opnum8Reserved(void);
+    long Opnum9Reserved(void);
+    long Opnum10Reserved(void);
+    long Opnum11Reserved(void);
+    long Opnum12Reserved(void);
+
+    /* Opnum 13: EfsRpcDuplicateEncryptionInfoFile — destination bypass */
+    long EfsRpcDuplicateEncryptionInfoFile(
+        [in] handle_t binding_h,
+        [in, string] wchar_t *SrcFileName,
+        [in, string] wchar_t *DestFileName,
+        [in] unsigned long dwCreationDisposition,
+        [in] unsigned long dwDesiredAttributes,
+        [in, unique] EFSR_RPC_BLOB *pRelativeSD,
+        [in] unsigned long bInheritHandle
+    );
+}

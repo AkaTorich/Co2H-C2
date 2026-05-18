@@ -1,0 +1,30 @@
+# modules.txt -- список DLL для генерации хешей модулей
+# Использование: hash_gen -m -f modules.txt
+#
+# Имена приводятся к нижнему регистру перед хешированием
+# (как BaseDllName в PEB после нормализации).
+
+ntdll.dll
+kernel32.dll
+kernelbase.dll
+user32.dll
+advapi32.dll
+ws2_32.dll
+wininet.dll
+winhttp.dll
+ole32.dll
+oleaut32.dll
+shell32.dll
+shlwapi.dll
+crypt32.dll
+bcrypt.dll
+ncrypt.dll
+dwrite.dll
+mshtml.dll
+comctl32.dll
+propsys.dll
+version.dll
+winmm.dll
+dbghelp.dll
+psapi.dll
+iphlpapi.dll

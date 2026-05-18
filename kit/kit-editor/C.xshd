@@ -1,0 +1,197 @@
+<?xml version="1.0"?>
+<SyntaxDefinition name="C" extensions=".c;.h" xmlns="http://icsharpcode.net/sharpdevelop/syntaxdefinition/2008">
+
+    <!-- Палитра: hacker green/cyan/yellow на чёрном -->
+    <Color name="Comment"      foreground="#669966" fontStyle="italic"/>
+    <Color name="String"       foreground="#FFCC66"/>
+    <Color name="Char"         foreground="#FFCC66"/>
+    <Color name="Preprocessor" foreground="#FF66FF"/>
+    <Color name="Number"       foreground="#FFAA55"/>
+    <Color name="Keyword"      foreground="#00FFFF" fontWeight="bold"/>
+    <Color name="ControlFlow"  foreground="#FF6688" fontWeight="bold"/>
+    <Color name="Type"         foreground="#7FFF7F"/>
+    <Color name="WinType"      foreground="#66FFCC"/>
+    <Color name="Constant"     foreground="#FFFF66"/>
+    <Color name="Punctuation"  foreground="#C0FFC0"/>
+    <Color name="Function"     foreground="#AAFFAA"/>
+
+    <RuleSet ignoreCase="false">
+
+        <!-- Однострочные комментарии -->
+        <Span color="Comment" begin="//"/>
+
+        <!-- Многострочные комментарии -->
+        <Span color="Comment" multiline="true" begin="/\*" end="\*/"/>
+
+        <!-- Строковые литералы -->
+        <Span color="String" multiline="false">
+            <Begin>"</Begin>
+            <End>"</End>
+            <RuleSet>
+                <Span begin="\\" end="."/>
+            </RuleSet>
+        </Span>
+
+        <!-- Символьные литералы -->
+        <Span color="Char" multiline="false">
+            <Begin>'</Begin>
+            <End>'</End>
+            <RuleSet>
+                <Span begin="\\" end="."/>
+            </RuleSet>
+        </Span>
+
+        <!-- Препроцессор: #include, #define и т.д. -->
+        <Span color="Preprocessor">
+            <Begin>\#</Begin>
+            <End>$</End>
+            <RuleSet>
+                <Span color="String" multiline="false">
+                    <Begin>"</Begin><End>"</End>
+                </Span>
+                <Span color="String" multiline="false">
+                    <Begin>&lt;</Begin><End>&gt;</End>
+                </Span>
+                <Span color="Comment" begin="//" end="$"/>
+            </RuleSet>
+        </Span>
+
+        <!-- Управление потоком — отдельным цветом, бросается в глаза -->
+        <Keywords color="ControlFlow">
+            <Word>if</Word>
+            <Word>else</Word>
+            <Word>switch</Word>
+            <Word>case</Word>
+            <Word>default</Word>
+            <Word>for</Word>
+            <Word>while</Word>
+            <Word>do</Word>
+            <Word>break</Word>
+            <Word>continue</Word>
+            <Word>return</Word>
+            <Word>goto</Word>
+        </Keywords>
+
+        <!-- Обычные ключевые слова C -->
+        <Keywords color="Keyword">
+            <Word>auto</Word>
+            <Word>extern</Word>
+            <Word>register</Word>
+            <Word>static</Word>
+            <Word>const</Word>
+            <Word>volatile</Word>
+            <Word>inline</Word>
+            <Word>restrict</Word>
+            <Word>typedef</Word>
+            <Word>struct</Word>
+            <Word>union</Word>
+            <Word>enum</Word>
+            <Word>sizeof</Word>
+            <Word>__cdecl</Word>
+            <Word>__stdcall</Word>
+            <Word>__fastcall</Word>
+            <Word>__declspec</Word>
+            <Word>__forceinline</Word>
+            <Word>__try</Word>
+            <Word>__except</Word>
+            <Word>__finally</Word>
+        </Keywords>
+
+        <!-- Базовые типы C -->
+        <Keywords color="Type">
+            <Word>void</Word>
+            <Word>char</Word>
+            <Word>short</Word>
+            <Word>int</Word>
+            <Word>long</Word>
+            <Word>float</Word>
+            <Word>double</Word>
+            <Word>signed</Word>
+            <Word>unsigned</Word>
+            <Word>size_t</Word>
+            <Word>ssize_t</Word>
+            <Word>ptrdiff_t</Word>
+            <Word>int8_t</Word>
+            <Word>int16_t</Word>
+            <Word>int32_t</Word>
+            <Word>int64_t</Word>
+            <Word>uint8_t</Word>
+            <Word>uint16_t</Word>
+            <Word>uint32_t</Word>
+            <Word>uint64_t</Word>
+            <Word>intptr_t</Word>
+            <Word>uintptr_t</Word>
+            <Word>bool</Word>
+            <Word>_Bool</Word>
+        </Keywords>
+
+        <!-- WinAPI типы -->
+        <Keywords color="WinType">
+            <Word>HANDLE</Word>
+            <Word>HMODULE</Word>
+            <Word>HINSTANCE</Word>
+            <Word>HWND</Word>
+            <Word>HKEY</Word>
+            <Word>HLOCAL</Word>
+            <Word>HGLOBAL</Word>
+            <Word>DWORD</Word>
+            <Word>WORD</Word>
+            <Word>BYTE</Word>
+            <Word>BOOL</Word>
+            <Word>BOOLEAN</Word>
+            <Word>LONG</Word>
+            <Word>ULONG</Word>
+            <Word>LONGLONG</Word>
+            <Word>ULONGLONG</Word>
+            <Word>SIZE_T</Word>
+            <Word>NTSTATUS</Word>
+            <Word>PVOID</Word>
+            <Word>LPVOID</Word>
+            <Word>LPCVOID</Word>
+            <Word>LPSTR</Word>
+            <Word>LPCSTR</Word>
+            <Word>LPWSTR</Word>
+            <Word>LPCWSTR</Word>
+            <Word>WCHAR</Word>
+            <Word>CHAR</Word>
+            <Word>UCHAR</Word>
+            <Word>USHORT</Word>
+            <Word>UINT</Word>
+            <Word>INT</Word>
+            <Word>FLOAT</Word>
+            <Word>PEB</Word>
+            <Word>TEB</Word>
+        </Keywords>
+
+        <!-- Константы и встроенные значения -->
+        <Keywords color="Constant">
+            <Word>NULL</Word>
+            <Word>TRUE</Word>
+            <Word>FALSE</Word>
+            <Word>true</Word>
+            <Word>false</Word>
+            <Word>nullptr</Word>
+            <Word>INVALID_HANDLE_VALUE</Word>
+        </Keywords>
+
+        <!-- Числа: 0x..., десятичные, с суффиксами -->
+        <Rule color="Number">
+            \b(
+                0[xX][0-9a-fA-F]+[uUlL]*
+                |
+                [0-9]+(\.[0-9]+)?([eE][-+]?[0-9]+)?[uUlLfF]*
+            )\b
+        </Rule>
+
+        <!-- Вызовы функций: identifier( -->
+        <Rule color="Function">
+            \b[A-Za-z_][A-Za-z0-9_]*(?=\s*\()
+        </Rule>
+
+        <!-- Пунктуация: скобки, операторы -->
+        <Rule color="Punctuation">
+            [?,.;()\[\]{}+\-/%*&lt;&gt;^=!|&amp;~]+
+        </Rule>
+
+    </RuleSet>
+</SyntaxDefinition>

