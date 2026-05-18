@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<title>Teamserver</title>
+<link rel="stylesheet" href="style.css">
+</head><body>
+<nav class="crumbs"><a href="index.html">Home</a> &raquo; Teamserver</nav>
+
+<h1>Teamserver</h1>
+
+<p>The teamserver is launched from the client via the <b>Start Server</b> button on the toolbar.
+Configuration (TLS certificates, listeners, database) is stored in <code>configs/srv.toml</code>
+alongside the client and edited through the GUI; normally you do not need to run
+<code>teamserver.exe</code> directly.</p>
+
+<h2 id="config">Config Structure: <code>srv.toml</code></h2>
+
+<h3>General Sections</h3>
+<pre>[operators]
+bind = "0.0.0.0"
+port = 50050
+
+[tls]
+cert = "certs/server.crt"
+key  = "certs/server.key"
+ca   = "certs/ca.crt"      # comment out to disable mTLS (development only)
+
+[database]
+path = "co2h.db"
+
+[io]
+threads = 0                 # 0 = auto (based on number of cores)
+
+[log]
+dir = "logs"</pre>
+
+<h3 id="listener-examples">Listener Configuration</h3>
+<p>Each listener is described by a <code>[[listeners]]</code> section.
+Multiple sections can be specified — all will start when the teamserver starts.</p>
+
+<h4>HTTPS listener</h4>
+<pre>[[listeners]]
+kind         = "https"
+name         = "https-main"
+bind         = "0.0.0.0"
+port         = 443
+tls_cert     = "certs/listener.crt"
+tls_key      = "certs/listener.key"
+profile      = "profiles/default.toml"   # malleable profile (optional)
+# listener_key = "aabb...64 hex chars"   # optional; omit for auto</pre>
+<table>
+<tr><th>Parameter</th><th>Description</th><th>Default</th></tr>
+<tr><td><code>kind</code></td><td>Listener type</td><td><code>"https"</code></td></tr>
+<tr><td><code>name</code></td><td>Unique name</td><td>—</td></tr>
+<tr><td><code>bind</code></td><td>Bind address</td><td><code>"0.0.0.0"</code></td></tr>
+<tr><td><code>port</code></td><td>TCP port</td><td><code>443</code></td></tr>
+<tr><td><code>tls_cert</code></td><td>Path to the listener TLS certificate</td><td>—</td></tr>
+<tr><td><code>tls_key</code></td><td>Path to the TLS private key</td><td>—</td></tr>
+<tr><td><code>profile</code></td><td>Path to the malleable profile (URI, headers, cookie)</td><td>built-in</td></tr>
+<tr><td><code>listener_key</code></td><td>AES-256 key (64 hex chars). Empty = auto from DB or random</td><td>auto</td></tr>
+</table>
+
+<h4>TCP (raw) listener</h4>
+<p>TCP listeners are usually created dynamically through the client UI.
+If necessary, they can be described in the config:</p>
+<pre>[[listeners]]
+kind         = "tcp"
+name         = "tcp-internal"
+bind         = "0.0.0.0"
+port         = 4444
+# listener_key = "aabb...64 hex chars"</pre>
+
+<h4>SMB (named pipe) listener</h4>
+<p>SMB listeners are also created dynamically. Example for the config:</p>
+<pre>[[listeners]]
+kind         = "smb"
+name         = "smb-lateral"
+bind         = "0.0.0.0"
+port         = 445
+# listener_key = "aabb...64 hex chars"</pre>
+
+<h4>DNS (UDP) listener</h4>
+<pre>[[listeners]]
+kind         = "dns"
+name         = "dns-c2"
+bind         = "0.0.0.0"
+port         = 53
+c2_domain    = "c2.example.com"
+# listener_key = "aabb...64 hex chars"</pre>
+<table>
+<tr><th>Parameter</th><th>Description</th></tr>
+<tr><td><code>c2_domain</code></td><td>Authoritative subdomain delegated to the teamserver's IP via an NS record</td></tr>
+<tr><td><code>port</code></td><td>UDP port (standard — <code>53</code>)</td></tr>
+</table>
+
+<h4>Multiple listeners simultaneously</h4>
+<p>You can run HTTPS and DNS at the same time — each with its own key:</p>
+<pre>[[listeners]]
+kind         = "https"
+name         = "https-main"
+bind         = "0.0.0.0"
+port         = 443
+tls_cert     = "certs/listener.crt"
+tls_key      = "certs/listener.key"
+
+[[listeners]]
+kind         = "dns"
+name         = "dns-backup"
+bind         = "0.0.0.0"
+port         = 53
+c2_domain    = "c2.example.com"</pre>
+
+<h3 id="listener-key">The <code>listener_key</code> Parameter</h3>
+<p>AES-256 listener key (64 hex chars). Key selection logic on startup:</p>
+<ol>
+<li>If <code>listener_key</code> is specified in the config — it is used as-is and saved to the DB.</li>
+<li>Otherwise — the key is taken from the DB (saved from the previous run).</li>
+<li>If not in the DB — a random key is generated and saved.</li>
+</ol>
+<p><b>Use case:</b> when a beacon is configured for automatic failover
+between servers (<a href="listeners.html#fallback">fallback C2</a>),
+all servers in the chain must use the same listener key.</p>
+<p>To copy the current listener key: <b>Listeners</b> tab &rarr;
+right-click &rarr; <b>Copy listener key</b>.</p>
+
+<h2 id="startup">What the Teamserver Does on Startup</h2>
+<ol>
+<li>Reads the config and initializes the network I/O subsystem.</li>
+<li>Opens the database and migrates the schema.</li>
+<li>Brings up the operator connection port (mTLS).</li>
+<li>Starts all listeners declared in <code>[[listeners]]</code> sections.</li>
+<li>Generates a key for each listener and displays it in the client's Listeners tab.</li>
+</ol>
+
+<h2 id="auth">Operator Authentication</h2>
+<p>Operator passwords are stored in the DB as a hash. The default admin is created on first initialization:</p>
+<table>
+<tr><td>username</td><td><code>admin</code></td></tr>
+<tr><td>password</td><td><code>changeme</code></td></tr>
+</table>
+<div class="warning">Changing the password is the mandatory first operation in a real deployment.</div>
+
+<h2 id="creds">Credentials Store</h2>
+<p>The shared credentials store for all operators. Stored in the teamserver database;
+changes are automatically distributed to all connected operators — the
+Credentials tab on each client updates without reloading.</p>
+<p>Supported record types: <code>password</code>, <code>hash</code>,
+<code>ticket</code>, <code>identity</code>. Management — via the <b>Credentials</b> tab
+in the client: <b>Refresh</b>, <b>Add</b>, <b>Delete</b>.</p>
+
+<h2 id="from-client">Starting from the Client</h2>
+<p>Toolbar &rarr; <b>Start Server</b>. The process stdout/stderr automatically goes to the
+<b>Logs</b> tab; the status (running / stopped) and listener port are shown in
+the client status bar. <b>Stop Server</b> shuts the process down gracefully.</p>
+
+<h2 id="standalone">Standalone Launch (without the Client)</h2>
+<p>The teamserver can be run independently of the client — for example, on a remote VPS
+or in a Docker container. The only required argument is the path to the config:</p>
+
+<h3>Windows</h3>
+<pre>teamserver.exe --config C:\path\to\srv.toml</pre>
+
+<h3>Linux</h3>
+<pre>./teamserver --config /opt/co2h/srv.toml</pre>
+
+<p>If the <code>--config</code> argument is not specified, the teamserver looks for
+<code>configs/srv.toml</code> in the current working directory.</p>
+
+<h3>Additional Arguments</h3>
+<table>
+<tr><th>Argument</th><th>Description</th><th>Default</th></tr>
+<tr><td><code>--config &lt;path&gt;</code></td><td>Path to the TOML config</td><td><code>configs/srv.toml</code></td></tr>
+<tr><td><code>--bind &lt;addr&gt;</code></td><td>Bind address for the operator port (overrides config)</td><td>from config</td></tr>
+<tr><td><code>--port &lt;num&gt;</code></td><td>Port for operator connections (overrides config)</td><td>from config</td></tr>
+<tr><td><code>--verbose</code></td><td>Extended logging (debug level)</td><td>off</td></tr>
+</table>
+
+<h3>Example: Running on a VPS</h3>
+<pre># Prepare config and certificates
+mkdir -p /opt/co2h/certs /opt/co2h/logs
+cp srv.toml /opt/co2h/
+cp server.crt server.key ca.crt /opt/co2h/certs/
+
+# Start in background
+cd /opt/co2h
+./teamserver --config srv.toml &amp;</pre>
+
+<p>After starting, operators connect with the client by specifying the teamserver IP and port
+in the <b>Connect to server</b> dialog.</p>
+
+</body></html>

@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<title>Co2H — Operator Manual</title>
+<link rel="stylesheet" href="style.css">
+</head><body>
+
+<h1>Co2H — Operator Manual</h1>
+
+<p>
+<b>Co2H</b> is a C2 framework (similar to Cobalt Strike) for red team operations.
+Available in two versions: <b>Windows</b> and <b>Linux</b> — the teamserver and client run
+on both platforms, beacons are generated for the target OS.
+Consists of three components:
+</p>
+
+<table>
+<tr><th>Component</th><th>Description</th></tr>
+<tr><td><code>teamserver</code></td><td>Server side: HTTPS/TCP/SMB/DNS listeners, SQLite database, mTLS for operators. Runs on Windows and Linux.</td></tr>
+<tr><td><code>client</code> (Qt6)</td><td>Operator graphical console: Sessions / Listeners / Graph / Downloads / Credentials / Chat / Logs + REPL. Runs on Windows and Linux.</td></tr>
+<tr><td><code>beacon</code></td><td>Payload: Windows (x64/x86 EXE/DLL), Linux (x64/ARM64/ARM32 ELF/SO), macOS (Universal/ARM64/x64 Mach-O/DYLIB).</td></tr>
+</table>
+
+<h2>Contents</h2>
+<ul class="toc">
+<li><a href="getting-started.html">Quick Start</a></li>
+<li><a href="ui-overview.html">Operator Interface (window, menu, toolbar, tabs)</a></li>
+<li><a href="console.html">Beacon Console and Command Hints</a></li>
+<li><a href="commands.html">Command Reference</a></li>
+<li><a href="teamserver.html">Teamserver — Configuration and Launch</a></li>
+<li><a href="listeners.html">Listeners (HTTPS, TCP, SMB, DNS, Pivot, SOCKS5, Reverse Port Forward)</a></li>
+<li><a href="profiles.html">Malleable Profiles</a></li>
+<li><a href="artifact-gen.html">Artifact Generator</a></li>
+<li><a href="artifact-kit.html">Artifact Kit</a></li>
+<li><a href="sleepmask-kit.html">Sleep Mask Kit</a></li>
+<li><a href="processinject-kit.html">Process Inject Kit</a></li>
+<li><a href="plugin-api.html">Plugin API — Plugin Development</a></li>
+<li><a href="troubleshooting.html">Troubleshooting</a></li>
+</ul>
+
+</body></html>

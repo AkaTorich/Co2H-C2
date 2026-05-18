@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<title>Malleable Profiles</title>
+<link rel="stylesheet" href="style.css">
+</head><body>
+<nav class="crumbs"><a href="index.html">Home</a> &raquo; Malleable Profiles</nav>
+
+<h1>Malleable Profiles</h1>
+
+<p>A profile is a TOML file that describes how an HTTPS listener should "look" from the network perspective.
+Applies only to the HTTPS transport; TCP, SMB and DNS do not use profiles.</p>
+
+<p>The profile is specified when creating a listener: the <b>Profile</b> field in the New Listener dialog,
+or the <code>profile</code> key in the <code>[[listeners]]</code> section of <code>srv.toml</code>.
+If the field is left empty, the built-in default profile is used.</p>
+
+<h2 id="how">Which Components Use the Profile</h2>
+<p>The profile is used in two places that <b>must be in sync</b>:</p>
+
+<table>
+<tr><th>Component</th><th>What It Takes from the Profile</th></tr>
+<tr><td><b>Teamserver</b> (HTTPS listener)</td>
+    <td>
+    Routing of incoming requests: compares method and URI against
+    <code>verb</code>, <code>uri_checkin</code>, <code>uri_task</code>, <code>http-post.uri</code>.<br>
+    Locates the encrypted beacon blob in the <code>metadata_cookie</code> cookie.<br>
+    Response formatting: status, Content-Type, wrap_prefix/suffix, extra headers.
+    </td></tr>
+<tr><td><b>Artifact Generator</b></td>
+    <td>
+    When generating, embeds into the beacon the values of <code>uri_checkin</code>, <code>uri_task</code>,
+    <code>http-post.uri</code>, <code>User-Agent</code> and <code>metadata_cookie</code>
+    — the beacon will use exactly these URIs and pass metadata in this cookie.
+    </td></tr>
+</table>
+
+<p>If a beacon was generated with one profile but the listener is running with another,
+the URI or cookie name will not match and the beacon will not receive any tasks.</p>
+
+<p>The <code>[server]</code> and <code>[server.headers]</code> fields affect only the teamserver
+(appearance of HTTP responses). The beacon does not read them — it accepts the body as-is.</p>
+
+<h2 id="ref">Field Reference</h2>
+
+<h3>[http-get]</h3>
+<table>
+<tr><th>Field</th><th>Type</th><th>Default</th><th>Description</th></tr>
+<tr><td><code>uri_checkin</code></td><td>string</td><td><code>/search</code></td>
+    <td>URI the beacon sends check-in requests to (with the metadata cookie).</td></tr>
+<tr><td><code>uri_task</code></td><td>string</td><td><code>/api/feed</code></td>
+    <td>URI for fetching tasks. Can be the same as <code>uri_checkin</code>.</td></tr>
+<tr><td><code>verb</code></td><td>string</td><td><code>GET</code></td>
+    <td>HTTP method for check-in and poll.</td></tr>
+<tr><td><code>metadata_cookie</code></td><td>string</td><td><code>sid</code></td>
+    <td>Cookie name in which the beacon passes encrypted metadata on each request.</td></tr>
+</table>
+
+<h3>[http-get.client_headers]</h3>
+<p>Arbitrary HTTP headers for beacon GET requests. Typical fields:</p>
+<table>
+<tr><th>Header</th><th>Example</th></tr>
+<tr><td><code>User-Agent</code></td><td><code>"Mozilla/5.0 (Windows NT 10.0; Win64; x64) ..."</code></td></tr>
+<tr><td><code>Accept</code></td><td><code>"text/html,application/xhtml+xml,*/*;q=0.8"</code></td></tr>
+<tr><td><code>Accept-Language</code></td><td><code>"en-US,en;q=0.9"</code></td></tr>
+<tr><td><code>Accept-Encoding</code></td><td><code>"gzip, deflate, br"</code></td></tr>
+<tr><td><code>Sec-Fetch-*</code></td><td>Chrome browser security headers</td></tr>
+</table>
+
+<h3>[http-post]</h3>
+<table>
+<tr><th>Field</th><th>Type</th><th>Default</th><th>Description</th></tr>
+<tr><td><code>uri</code></td><td>string</td><td><code>/submit</code></td>
+    <td>URI for submitting beacon output (command results, files).</td></tr>
+<tr><td><code>verb</code></td><td>string</td><td><code>POST</code></td>
+    <td>HTTP method for submit.</td></tr>
+</table>
+
+<h3>[http-post.client_headers]</h3>
+<p>Arbitrary HTTP headers for beacon POST requests. Typical fields:</p>
+<table>
+<tr><th>Header</th><th>Example</th><th>Note</th></tr>
+<tr><td><code>Content-Type</code></td><td><code>"application/octet-stream"</code></td>
+    <td>Default. To masquerade as a JSON API: <code>"application/json; charset=utf-8"</code>.</td></tr>
+<tr><td><code>User-Agent</code></td><td><code>"Mozilla/5.0 ..."</code></td>
+    <td>Usually matches GET. If not specified, uses the value from <code>[http-get.client_headers]</code>.</td></tr>
+<tr><td><code>Accept</code></td><td><code>"*/*"</code></td>
+    <td>For plausibility when masquerading as an API.</td></tr>
+<tr><td><code>X-Requested-With</code></td><td><code>"XMLHttpRequest"</code></td>
+    <td>Characteristic of AJAX requests to web applications.</td></tr>
+<tr><td><code>Origin</code> / <code>Referer</code></td><td><code>"https://example.com"</code></td>
+    <td>Simulating a browser request.</td></tr>
+</table>
+
+<h3>[server]</h3>
+<table>
+<tr><th>Field</th><th>Type</th><th>Default</th><th>Description</th></tr>
+<tr><td><code>status</code></td><td>int</td><td><code>200</code></td>
+    <td>HTTP status code for responses with payload. Can be set to <code>206</code> (Partial Content)
+        for plausibility.</td></tr>
+<tr><td><code>content_type</code></td><td>string</td><td><code>text/html; charset=utf-8</code></td>
+    <td>Value of the <code>Content-Type</code> header in the response.</td></tr>
+<tr><td><code>wrap_prefix</code></td><td>string</td><td><code>""</code></td>
+    <td>String prepended <b>before</b> the payload in the response body.
+        For example: <code>"&lt;html&gt;&lt;body&gt;"</code>.</td></tr>
+<tr><td><code>wrap_suffix</code></td><td>string</td><td><code>""</code></td>
+    <td>String appended <b>after</b> the payload in the response body.
+        For example: <code>"&lt;/body&gt;&lt;/html&gt;"</code>.</td></tr>
+</table>
+
+<h3>[server.headers]</h3>
+<p>Additional HTTP response headers. Added to every response from the listener.
+The <code>Content-Length</code> and <code>Connection</code> headers are added automatically —
+you do not need to specify them.</p>
+<table>
+<tr><th>Example</th><th>Effect</th></tr>
+<tr><td><code>"Server" = "nginx"</code></td><td>Masquerade as nginx.</td></tr>
+<tr><td><code>"Cache-Control" = "no-cache"</code></td><td>Appearance of dynamic content.</td></tr>
+<tr><td><code>"X-Frame-Options" = "SAMEORIGIN"</code></td><td>Simulates security headers of a browser application.</td></tr>
+<tr><td><code>"X-XSS-Protection" = "0"</code></td><td>Characteristic of Google servers (<code>gws</code>).</td></tr>
+</table>
+
+<h2 id="presets">Default Profile</h2>
+<p><code>profiles/default.toml</code> — nginx + Chrome UA. Check-in at <code>/search</code>,
+tasks at <code>/api/feed</code>, submit at <code>/submit</code>. Cookie <code>sid</code>.
+Used by default in <code>configs/srv.toml</code>.</p>
+
+<h2 id="example">Example: Masquerading as Office 365</h2>
+<pre>[http-get]
+uri_checkin     = "/owa/auth/logon.aspx"
+uri_task        = "/owa/service.svc"
+verb            = "GET"
+metadata_cookie = "ClientId"
+
+[http-get.client_headers]
+"User-Agent"      = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+"Accept"          = "text/html,application/xhtml+xml,*/*;q=0.8"
+"Accept-Language" = "en-US,en;q=0.9"
+
+[http-post]
+uri  = "/owa/service.svc/s/GetMail"
+verb = "POST"
+
+[http-post.client_headers]
+"Content-Type" = "application/json; charset=utf-8"
+"X-OWA-CANARY" = "placeholder"
+
+[server]
+status       = 200
+content_type = "application/json; charset=utf-8"
+wrap_prefix  = ""
+wrap_suffix  = ""
+
+[server.headers]
+"Server"        = "Microsoft-IIS/10.0"
+"X-Powered-By"  = "ASP.NET"
+"Cache-Control" = "private"</pre>
+
+<div class="opsec">
+<b>Note on wrap_prefix / wrap_suffix.</b>
+When the beacon receives a response, it extracts base64url data from the entire body,
+<b>ignoring characters outside the alphabet</b> (<code>A–Z a–z 0–9 - _</code>).
+Therefore prefix and suffix must consist <em>only</em> of characters outside this alphabet:
+<code>&lt; &gt; ! " { } : , /</code> etc.
+If the prefix contains an alphanumeric character, a dash, or an underscore —
+it will be included in the decoded stream and the payload will be corrupted.
+</div>
+
+</body></html>

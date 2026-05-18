@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<title>Artifact Generator</title>
+<link rel="stylesheet" href="style.css">
+</head><body>
+<nav class="crumbs"><a href="index.html">Home</a> &raquo; Artifact Generator</nav>
+
+<h1>Artifact Generator</h1>
+
+<p>An artifact is a beacon template with the C2 address and listener key already embedded.
+Two target OSes and four transports are supported.</p>
+
+<h3>Templates by Target OS</h3>
+<p>All templates reside in the <code>bin\beacons\</code> directory alongside the client and artifact-gen.
+Template selection is fully automatic — just specify the target OS, format and architecture
+in the generation dialog.</p>
+<table>
+<tr><th>OS</th><th>Template</th><th>Format</th><th>Architecture</th></tr>
+<tr><td rowspan="4">Windows</td>
+    <td><code>beacon64.exe</code></td><td>PE EXE</td><td>x64</td></tr>
+<tr><td><code>beacon64.dll</code></td><td>PE DLL</td><td>x64</td></tr>
+<tr><td><code>beacon32.exe</code></td><td>PE EXE</td><td>x86</td></tr>
+<tr><td><code>beacon32.dll</code></td><td>PE DLL</td><td>x86</td></tr>
+<tr><td rowspan="6">Linux</td>
+    <td><code>beacon-linux64</code></td><td>ELF</td><td>x86_64</td></tr>
+<tr><td><code>beacon-linux64.so</code></td><td>ELF SO</td><td>x86_64</td></tr>
+<tr><td><code>beacon-linux-arm64</code></td><td>ELF</td><td>ARM64 (aarch64)</td></tr>
+<tr><td><code>beacon-linux-arm64.so</code></td><td>ELF SO</td><td>ARM64 (aarch64)</td></tr>
+<tr><td><code>beacon-linux-arm32</code></td><td>ELF</td><td>ARM32 (armhf)</td></tr>
+<tr><td><code>beacon-linux-arm32.so</code></td><td>ELF SO</td><td>ARM32 (armhf)</td></tr>
+<tr><td rowspan="6">macOS</td>
+    <td><code>beacon-macos</code></td><td>Mach-O</td><td>Universal (arm64 + x64)</td></tr>
+<tr><td><code>beacon-macos.dylib</code></td><td>DYLIB</td><td>Universal (arm64 + x64)</td></tr>
+<tr><td><code>beacon-macos-arm64</code></td><td>Mach-O</td><td>ARM64 (Apple Silicon)</td></tr>
+<tr><td><code>beacon-macos-arm64.dylib</code></td><td>DYLIB</td><td>ARM64 (Apple Silicon)</td></tr>
+<tr><td><code>beacon-macos-x64</code></td><td>Mach-O</td><td>x86_64 (Intel)</td></tr>
+<tr><td><code>beacon-macos-x64.dylib</code></td><td>DYLIB</td><td>x86_64 (Intel)</td></tr>
+</table>
+<p>A total of <b>16 templates</b> for three OSes. All are accessible through the artifact generation dialog
+in the client (<b>Toolbar &rarr; Generate artifact</b>): selecting the OS automatically
+updates the format and architecture lists.</p>
+
+<p>Generation is fully integrated into the client — no separate commands or utilities need to be run.
+For more on the dialog, see: <a href="ui-overview.html#artifact-dialog">Artifact Generation Dialog</a>.</p>
+
+<h2 id="gui">Creating from the Client</h2>
+<p>Toolbar &rarr; <b>Generate artifact</b>:</p>
+<ol>
+<li>In the <b>Listener</b> dropdown, select the desired listener — the key and parameters
+    are filled in automatically.</li>
+<li>Fields change based on listener type:
+    <ul>
+    <li><b>HTTPS</b> — C2 host and port.</li>
+    <li><b>TCP</b> — C2 host and port; the beacon will select TCP transport automatically.</li>
+    <li><b>SMB</b> — pipe name (taken from the listener automatically) and <b>Server host</b>
+        — IP or hostname of the machine whose pipe the beacon will connect to.</li>
+    <li><b>DNS</b> — <b>C2 domain</b> field (filled from the listener automatically).
+        The <b>C2 host</b> field is hidden — the teamserver IP is taken automatically
+        from the current connection address.</li>
+    </ul>
+</li>
+<li><i>(Optional)</i> In the <b>Fallback C2</b> field, specify fallback servers
+    (up to 4, one per line, format <code>host:port[:uri]</code>).
+    See <a href="listeners.html#fallback">Fallback C2</a>.</li>
+<li>In the <b>Target OS</b> field, select <code>Windows</code>, <code>Linux</code> or <code>macOS</code>.</li>
+<li>Select format and architecture:
+    <ul>
+    <li><b>Windows</b> — EXE / DLL, x64 / x86.</li>
+    <li><b>Linux</b> — ELF / SO, x64 / ARM64 / ARM32.</li>
+    <li><b>macOS</b> — Mach-O / DYLIB, Universal (arm64 + x64) / ARM64 / x64.</li>
+    </ul></li>
+<li>Specify the save path and click <b>OK</b>. Progress and messages appear in the <b>Logs</b> tab.</li>
+</ol>
+
+<h2 id="transport">Transport Selection</h2>
+<p>The transport is embedded in the beacon at artifact generation time based on the type of the
+selected listener — no additional configuration is needed:</p>
+<table>
+<tr><th>Listener type</th><th>Beacon transport</th><th>uri_checkin</th></tr>
+<tr><td>HTTPS</td><td>HTTPS (TLS)</td><td><code>/search</code> (by profile)</td></tr>
+<tr><td>TCP (raw)</td><td>TCP raw</td><td><code>tcp://</code></td></tr>
+<tr><td>SMB (named pipe)</td><td>SMB named pipe</td><td><code>smb://&lt;pipe&gt;</code></td></tr>
+<tr><td>DNS (UDP)</td><td>DNS TXT/A</td><td><code>dns://&lt;c2domain&gt;</code></td></tr>
+</table>
+
+<h2 id="relay-child">Generating a Relay Child Beacon</h2>
+<p>Beacon context menu (Sessions or Graph) &rarr; <b>Generate relay child beacon…</b>
+opens the child artifact generation dialog, configured to connect
+through the selected parent beacon.</p>
+
+<table>
+<tr><th>Field</th><th>Description</th></tr>
+<tr><td><b>Target OS</b></td><td>Target OS for the child beacon: <code>Windows</code> or <code>Linux</code>.</td></tr>
+<tr><td><b>Format</b></td><td><code>EXE</code> or <code>DLL</code> (Windows only; hidden when Linux is selected).</td></tr>
+<tr><td><b>Architecture</b></td><td><code>x64</code> or <code>x86</code> (Windows only; hidden when Linux is selected).</td></tr>
+<tr><td><b>Output</b></td><td>File save path. When Linux is selected, the <code>.exe</code>/<code>.dll</code> extension
+    is automatically removed.</td></tr>
+</table>
+
+<p>The artifact is generated with these parameters:</p>
+<ul>
+<li><b>Host</b> — IP of the parent beacon (internal target address).</li>
+<li><b>Port</b> — relay port opened on the parent beacon.</li>
+<li><b>Parent ID</b> — hex identifier of the parent beacon (patched into the <code>parent_id</code> field of the <code>BeaconState</code> struct).</li>
+<li><b>Transport</b> — raw TCP (<code>tcp://</code> in <code>uri_checkin</code>).</li>
+</ul>
+
+<div class="note">
+Before generating a child artifact, you must open a relay port on the parent beacon:
+context menu &rarr; <b>Start relay port (chain pivot)…</b>.
+The child beacon connects to this port and gains access to the teamserver
+through the relay chain.
+</div>
+
+<h2 id="dns-prereq">DNS Artifact Requirements</h2>
+<p>For DNS C2 to work, you need to:</p>
+<ol>
+<li>Delegate a subdomain (e.g. <code>c2.example.com</code>) to the teamserver IP
+    via an NS record at the registrar.</li>
+<li>Open UDP port 53 on the teamserver firewall.</li>
+<li>Create a DNS listener via <b>New listener → DNS (UDP)</b>, specifying the same subdomain
+    in the <b>C2 domain</b> field.</li>
+<li>Generate the artifact selecting that DNS listener. The <b>C2 domain</b> field
+    will be filled in automatically.</li>
+</ol>
+
+</body></html>

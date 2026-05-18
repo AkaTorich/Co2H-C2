@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<title>Beacon Console</title>
+<link rel="stylesheet" href="style.css">
+</head><body>
+<nav class="crumbs"><a href="index.html">Home</a> &raquo; Console</nav>
+
+<h1>Beacon Console</h1>
+
+<p>The lower portion of the main window is a REPL that sends commands to the active beacon
+via the task queue. Output arrives asynchronously on the next check-in.</p>
+
+<h2 id="header">Header</h2>
+<table>
+<tr><td><code>No beacon selected</code></td><td>No beacon selected.</td></tr>
+<tr><td><code>beacon &lt;id&gt;</code></td><td>Active beacon, normal mode.</td></tr>
+<tr><td><code>beacon &lt;id&gt; [interactive shell]</code></td><td>Interactive <code>cmd.exe</code> on the target.</td></tr>
+</table>
+
+<h2 id="hints">Command Hints</h2>
+<p>While typing, a popup appears above the input field:</p>
+<ul>
+<li><b>Prefix input</b> (e.g. <code>exec</code>) &rarr; list of matches (up to 8): name + arguments + brief description.</li>
+<li><b>Name + space</b> (e.g. <code>spawnto&nbsp;</code>) &rarr; detailed hint for that command.</li>
+</ul>
+<p>The hint hides on empty input, after <kbd>Enter</kbd>, and in interactive shell mode.</p>
+
+<h2 id="shell">Interactive Shell</h2>
+<p><code>shell</code> without arguments starts a live <code>cmd.exe</code> on the target.
+Each line is sent to the STDIN of <code>cmd.exe</code>, output is printed to the console.
+The <code>exit</code> command inside interactive mode closes <code>cmd.exe</code>
+without killing the beacon.</p>
+
+<h2 id="paths">Paths with Spaces</h2>
+<p>Everywhere multiple arguments are accepted, paths with spaces are enclosed in double quotes:</p>
+<pre>upload "C:\loot\report doc.docx" "C:\Windows\Temp\r.docx"</pre>
+
+<h2 id="history">Command History</h2>
+<p>All entered commands are available in the current client session via the
+<kbd>↑</kbd> / <kbd>↓</kbd> arrow keys and are not saved between restarts.</p>
+
+<h2 id="tabs">Console Tabs</h2>
+<p>Each beacon gets its own tab in the bottom console panel.
+Double-clicking a session (or via <b>Interact</b>) opens a tab for that beacon.
+Switching between beacons — click the tab header.</p>
+<ul>
+<li><b>Rename</b> — double-clicking the tab header opens an input field
+    for setting a custom name. An empty value restores the default name
+    (<code>user@host (id)</code>).</li>
+<li><b>Buffer</b> — each tab stores up to 25,000 lines. When exceeded,
+    old lines are discarded. Scrolling — standard mouse wheel.</li>
+</ul>
+
+<h2 id="colors">Colors</h2>
+<table>
+<tr><th>Color</th><th>Meaning</th></tr>
+<tr><td><span style="color:#60a5fa">blue</span></td><td>echo of the entered command</td></tr>
+<tr><td><span style="color:#c8d4e8">light gray</span></td><td>normal beacon output</td></tr>
+<tr><td><span style="color:#f87171">red</span></td><td>beacon or client error</td></tr>
+</table>
+
+<h2 id="ansi">ANSI Coloring</h2>
+<p>The console recognizes ANSI escape sequences (<code>ESC[...m</code>)
+in beacon output and displays colored text. This allows you to see colored
+output from tools such as <code>linpeas</code>, <code>pspy</code>,
+<code>nmap --color</code> and similar — without losing color markup.</p>
+
+<p>Supported:</p>
+<ul>
+<li>Standard 16 colors (SGR 30–37, 40–47, 90–97, 100–107)</li>
+<li>Extended 256-color palette (SGR 38;5;N / 48;5;N)</li>
+<li>Attributes: bold (<code>ESC[1m</code>), italic (<code>ESC[3m</code>),
+    underline (<code>ESC[4m</code>), reset (<code>ESC[0m</code>)</li>
+</ul>
+
+</body></html>

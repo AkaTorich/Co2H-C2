@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<title>Operator Interface</title>
+<link rel="stylesheet" href="style.css">
+</head><body>
+<nav class="crumbs"><a href="index.html">Home</a> &raquo; Interface</nav>
+
+<h1>Operator Interface</h1>
+
+<p>The main window consists of five logical sections:</p>
+<ol>
+<li>Menu bar (File / View / Help)</li>
+<li>Toolbar</li>
+<li>Plugin bar (icons of loaded plugins)</li>
+<li>Tabs: <b>Sessions</b> / <b>Listeners</b> / <b>Graph</b> / <b>Files</b> / <b>Processes</b> / <b>Downloads</b> / <b>Credentials</b> / <b>Chat</b> / <b>Logs</b></li>
+<li>Beacon console (bottom panel, splitter above)</li>
+</ol>
+
+<h2 id="menu">Menu</h2>
+<table>
+<tr><th>Menu</th><th>Item</th><th>Action</th></tr>
+<tr><td>File</td><td>Exit (<kbd>Ctrl</kbd>+<kbd>Q</kbd>)</td><td>Close the client. If the teamserver is running — shut it down gracefully.</td></tr>
+<tr><td>View</td><td>Toggle theme</td><td>Switch between dark and light theme.</td></tr>
+<tr><td>Admin</td><td>Manage operators</td><td>Operator management (available only for the admin role after authentication).</td></tr>
+<tr><td>Tools</td><td>Generate Certificates&hellip;</td><td>Generate a complete mTLS certificate set (ca, server, listener, operator) into the <code>certs/</code> folder. See <a href="#certs">below</a>.</td></tr>
+<tr><td>Tools</td><td>Generate Shellcode (scelot)&hellip;</td><td>Open the dialog for converting a PE / .NET assembly into position-independent shellcode. See <a href="#scelot">below</a>.</td></tr>
+<tr><td>Help</td><td>About</td><td>About the application.</td></tr>
+<tr><td>Help</td><td>Manual</td><td>Open this manual in a separate tab.</td></tr>
+</table>
+
+<h2 id="certs">Certificate Generation</h2>
+<p>Menu <b>Tools &rarr; Generate Certificates&hellip;</b> — regenerate the full mTLS certificate
+set directly from the client, no external utilities required.</p>
+
+<p>What is created in the <code>certs/</code> folder next to the executable:</p>
+<table>
+<tr><th>File</th><th>Purpose</th></tr>
+<tr><td><code>ca.crt</code> / <code>ca.key</code></td><td>Self-signed root CA. Trust anchor for both sides of mTLS.</td></tr>
+<tr><td><code>server.crt</code> / <code>server.key</code></td><td>Teamserver certificate. Signed by the CA.</td></tr>
+<tr><td><code>listener.crt</code> / <code>listener.key</code></td><td>HTTPS listener certificate. Signed by the CA.</td></tr>
+<tr><td><code>operator.crt</code> / <code>operator.key</code></td><td>Operator client certificate. Signed by the CA. This file is used in the login dialog.</td></tr>
+</table>
+
+<p>Each generated certificate is validated against the chain before being written to disk.
+If validation fails — generation aborts, existing files are not overwritten,
+and an error message is written to the Logs tab.</p>
+
+<div class="warning">
+If certificates already exist in <code>certs/</code> — the client will ask for confirmation before overwriting.
+If the teamserver is running at the time of generation — it holds the old certificates in memory,
+so after successful generation the client will offer to restart it automatically.
+Without a restart the mTLS handshake will be rejected with an unknown CA error.
+</div>
+
+<div class="note">
+Generation takes about 30 seconds and runs in the background — the UI is not blocked,
+step-by-step progress is written to the Logs tab.
+</div>
+
+<h2 id="scelot">Shellcode Generation</h2>
+<p>Menu <b>Tools &rarr; Generate Shellcode (scelot)&hellip;</b> — dialog for converting
+an executable file or .NET assembly into position-independent shellcode.</p>
+
+<table>
+<tr><th>Field</th><th>Purpose</th></tr>
+<tr><td><b>Input PE</b></td><td>Path to the source <code>.exe</code> / <code>.dll</code> on the operator's machine. The <b>Browse&hellip;</b> button opens a file selection dialog.</td></tr>
+<tr><td><b>Output .bin</b></td><td>Where to save the resulting shellcode. Defaults to the input filename with a <code>.bin</code> extension.</td></tr>
+<tr><td><b>Architecture</b></td><td><code>auto</code> (from the input PE), <code>x64</code>, or <code>x86</code>.</td></tr>
+<tr><td><b>Exit mode</b></td><td>Behavior after the payload finishes: <code>exit</code> — terminate the process, <code>thread</code> — terminate the thread, <code>return</code> — return control.</td></tr>
+<tr><td><b>Args</b></td><td>Command-line arguments passed to the payload.</td></tr>
+<tr><td><b>Export (DLL)</b></td><td>DLL export name to call after <code>DllMain</code>.</td></tr>
+<tr><td><b>.NET class</b> / <b>.NET method</b></td><td>Class and method for .NET assemblies (<code>Namespace.Class</code>).</td></tr>
+<tr><td><b>Also emit BOF stager (.o)</b></td><td>Additionally build a BOF stager (COFF <code>.o</code>) next to the <code>.bin</code>. The generated shellcode is embedded in it; when loaded via <code>bof &lt;file.o&gt;</code> from another beacon it allocates RWX memory, copies the shellcode there and runs it in a new thread. No external compiler is required — a pre-compiled template is used, which scelot patches on the fly.</td></tr>
+</table>
+
+<p>After clicking <b>Generate</b>, the output of <code>scelot.exe</code> is displayed in the
+lower log window of the dialog.</p>
+
+<h2 id="toolbar">Toolbar</h2>
+<table>
+<tr><th>Button</th><th>Action</th></tr>
+<tr><td>Start Server</td><td>Launch the local <code>teamserver.exe</code> with <code>configs/srv.toml</code>. Log output is immediately written to the Logs tab.</td></tr>
+<tr><td>Stop Server</td><td>Gracefully stop the teamserver (terminate &rarr; kill after 3&nbsp;s).</td></tr>
+<tr><td>Connect</td><td>Open the login dialog and connect to the teamserver (mTLS).</td></tr>
+<tr><td>Refresh</td><td>Request up-to-date sessions / listeners lists.</td></tr>
+<tr><td>New listener</td><td>Open the listener creation dialog: select type (HTTPS / TCP / SMB / Pivot), enter parameters, call RPC on the teamserver.</td></tr>
+<tr><td>Generate artifact</td><td>Generate a beacon payload with an embedded key and address for the selected listener. See <a href="#artifact-dialog">artifact generation dialog</a>.</td></tr>
+<tr><td>Toggle theme</td><td>Same as View &rarr; Toggle theme.</td></tr>
+</table>
+
+<div class="note">
+Sessions/listeners are polled automatically every 5 seconds.
+</div>
+
+<h3 id="artifact-dialog">Artifact Generation Dialog</h3>
+<p>Opened by the <b>Generate artifact</b> button on the toolbar or from the listener context menu.</p>
+<table>
+<tr><th>Field</th><th>Description</th></tr>
+<tr><td><b>Listener</b></td><td>Select a listener from the list. Key and parameters are filled in automatically.</td></tr>
+<tr><td><b>Target OS</b></td><td>Target operating system: <code>Windows</code> or <code>Linux</code>.
+    Affects available formats and the beacon template.</td></tr>
+<tr><td><b>Format</b></td><td>Artifact format. For Windows: <code>EXE</code> or <code>DLL</code>.
+    Hidden when Linux is selected &mdash; always ELF.</td></tr>
+<tr><td><b>Architecture</b></td><td>Architecture: <code>x64</code> or <code>x86</code>.
+    Hidden when Linux is selected &mdash; x64 only.</td></tr>
+<tr><td><b>Fallback C2</b></td><td>Fallback C2 channels (up to 4, one per line). Format: <code>host:port</code> or <code>host:port:uri</code>.
+    On loss of connection to the primary channel the beacon automatically switches to the next one.
+    See <a href="listeners.html#fallback">Fallback C2</a>.</td></tr>
+<tr><td><b>Output</b></td><td>Save path for the generated file.</td></tr>
+</table>
+
+<h4>Behavior When Selecting Target OS</h4>
+<table>
+<tr><th></th><th>Windows</th><th>Linux</th></tr>
+<tr><td><b>Template</b></td><td><code>beacon64.exe</code> / <code>beacon64.dll</code> /
+    <code>beacon32.exe</code> / <code>beacon32.dll</code></td>
+    <td><code>beacon-linux64</code> (ELF) or <code>beacon-linux64.so</code></td></tr>
+<tr><td><b>Format</b></td><td>EXE / DLL</td><td>hidden (ELF)</td></tr>
+<tr><td><b>Architecture</b></td><td>x64 / x86</td><td>hidden (x64)</td></tr>
+<tr><td><b>Extension</b></td><td><code>.exe</code> / <code>.dll</code></td>
+    <td>no extension</td></tr>
+</table>
+
+<div class="note">
+The patching logic in <code>artifact-gen</code> is identical for PE and ELF &mdash;
+the sentinel (32 zero bytes + UTF-16LE <code>"127.0.0.1"</code>) is located
+the same way in both formats. The <code>--os linux</code> argument selects the template binary.
+</div>
+
+<h2 id="plugins-bar">Plugin Bar</h2>
+<p>Between the toolbar and the main tabs there is a plugin bar —
+a row of icons for loaded plugins. Each icon acts as a toggle:</p>
+<ul>
+<li><b>First click</b> — opens the plugin interface (the main tabs are hidden).</li>
+<li><b>Clicking the same icon again</b> — hides the plugin and restores the client tabs.</li>
+</ul>
+<p>Only one plugin can be active at a time. Clicking another plugin icon switches to it,
+and the previous one is hidden automatically.</p>
+
+<h2 id="sessions">Sessions Tab</h2>
+<p>Table of active beacons. Columns:</p>
+<table>
+<tr><th>Column</th><th>Description</th></tr>
+<tr><td><b>Beacon ID</b></td><td>Hex identifier with a session icon.</td></tr>
+<tr><td><b>Host</b></td><td>Target hostname.</td></tr>
+<tr><td><b>IP</b></td><td>Internal IP address.</td></tr>
+<tr><td><b>User</b></td><td>Username.</td></tr>
+<tr><td><b>PID</b></td><td>Beacon process identifier.</td></tr>
+<tr><td><b>Arch</b></td><td>Architecture: <code>x64</code> or <code>x86</code>.</td></tr>
+<tr><td><b>OS</b></td><td>Operating system: <code>Windows</code> or <code>Linux</code>.</td></tr>
+<tr><td><b>Listener</b></td><td>Listener name through which the beacon is connected.</td></tr>
+<tr><td><b>First Seen</b></td><td>Time of the first check-in (HH:MM:SS).</td></tr>
+<tr><td><b>Last Seen</b></td><td>Time of the last check-in (HH:MM:SS).</td></tr>
+</table>
+<p><b>Double-click</b> a row — the beacon becomes the "active" one in the bottom console.</p>
+
+<h3>Context Menu (right-click on a row)</h3>
+<table>
+<tr><th>Item</th><th>Action</th></tr>
+<tr><td>Interact</td><td>Open the beacon in the console (same as double-click).</td></tr>
+<tr><td>Copy beacon ID</td><td>Copy the beacon's hex identifier to clipboard.</td></tr>
+<tr><td>Copy hostname</td><td>Copy the hostname.</td></tr>
+<tr><td>Copy IP address</td><td>Copy the target IP address (IP column).</td></tr>
+<tr><td>Copy username</td><td>Copy the username.</td></tr>
+<tr><td>Start TCP pivot (fast SOCKS)</td><td>Dialog: create a pivot listener on the teamserver and send
+    the beacon a <code>tcp_pivot</code> command to connect back.</td></tr>
+<tr><td>Start relay port (chain pivot)</td><td>Open a relay port on the beacon for child beacons to connect
+    (chain: pivot &rarr; pivot). Dialog: enter port.</td></tr>
+<tr><td>Generate relay child beacon</td><td>Open the child artifact generation dialog
+    configured to connect through this beacon. Target OS (Windows/Linux),
+    Format, and Architecture can be selected.</td></tr>
+<tr><td>Start SOCKS5 listener (polling)</td><td>Dialog: open a local SOCKS5 port
+    that tunnels traffic through the beacon.</td></tr>
+<tr><td>Start Reverse Port Forward</td><td>Teamserver opens a TCP port (bind host / bind port);
+    on incoming connections traffic passes through the beacon to the specified rhost:rport.</td></tr>
+</table>
+
+<h2 id="listeners">Listeners Tab</h2>
+<p>List of running teamserver listeners: name, type (https/tcp/smb/pivot/socks5), address, port.
+Listeners are created via the <b>New listener</b> button on the toolbar or directly via RPC.</p>
+
+<h2 id="graph">Graph Tab</h2>
+<p>Real-time visual map of the infrastructure. Updates automatically
+when beacons or listeners appear, disappear, or change.</p>
+
+<h3>Topology</h3>
+<p>Nodes are arranged on three levels:</p>
+<table>
+<tr><th>Node</th><th>Color</th><th>Description</th></tr>
+<tr><td><b>teamserver</b></td><td style="color:#3b82f6">blue</td><td>Central node. Always present.</td></tr>
+<tr><td><b>Listener</b></td><td style="color:#22d3ee">cyan</td><td>Arranged in a circle around the teamserver. Tooltip: name, type, address.</td></tr>
+<tr><td><b>Beacon</b></td><td style="color:#10b981">green</td><td>120° arc around its listener. Tooltip: Beacon ID, host, user.</td></tr>
+<tr><td><b>Child beacon</b> (pivot)</td><td style="color:#f59e0b">amber</td><td>90° orbit around the parent beacon, not the listener.</td></tr>
+</table>
+<p>Listener&rarr;beacon lines — gray dashes; parent&rarr;child (pivot) lines — amber dotted dashes.</p>
+
+<h3>Navigation</h3>
+<table>
+<tr><th>Action</th><th>Result</th></tr>
+<tr><td>Mouse wheel</td><td>Zoom relative to cursor (&times;1.15 per step).</td></tr>
+<tr><td>LMB on empty background + drag</td><td>Pan.</td></tr>
+<tr><td>Middle button + drag</td><td>Pan.</td></tr>
+<tr><td>LMB on node + drag</td><td>Move the node. Edges follow it. Position is preserved on graph update.</td></tr>
+<tr><td><b>Reset</b> button (panel)</td><td>Clear all saved positions and lay out nodes at default positions.</td></tr>
+</table>
+
+<h3>Double-click</h3>
+<p>Double left-click on a <b>beacon</b> node — open it in the console (equivalent to <i>Interact</i> in the Sessions tab).</p>
+
+<h3>Context Menu — Teamserver</h3>
+<table>
+<tr><th>Item</th><th>Action</th></tr>
+<tr><td>New listener</td><td>Open the listener creation dialog (same as the toolbar button).</td></tr>
+<tr><td>Stop server</td><td>Stop the teamserver.</td></tr>
+</table>
+
+<h3>Context Menu — Listener</h3>
+<table>
+<tr><th>Item</th><th>Action</th></tr>
+<tr><td>Generate artifact for this listener</td><td>Open the artifact generation dialog with this listener pre-selected.</td></tr>
+<tr><td>Stop listener</td><td>Remove the listener from the teamserver.</td></tr>
+</table>
+
+<h3>Context Menu — Beacon</h3>
+<table>
+<tr><th>Item</th><th>Action</th></tr>
+<tr><td>Interact</td><td>Open the beacon in the console.</td></tr>
+<tr><td>Rename&hellip;</td><td>Set a display name for the node in the graph. The alias is stored on the client only; Beacon ID does not change. Empty value restores the default name (<code>ID&middot;user@host</code>).</td></tr>
+<tr><td>Copy beacon ID</td><td>Copy the full hex identifier.</td></tr>
+<tr><td>Copy hostname</td><td>Copy the target hostname.</td></tr>
+<tr><td>Copy IP address</td><td>Copy the target IP address.</td></tr>
+<tr><td>Copy username</td><td>Copy the username.</td></tr>
+<tr><td>Start TCP pivot (fast SOCKS)</td><td>Dialog: bind host, SOCKS port, pivot port. Creates a pivot listener on the teamserver and sends the beacon a <code>tcp_pivot</code> command.</td></tr>
+<tr><td>Start relay port (chain pivot)</td><td>Open a relay port on the beacon for child beacons to connect (chain: pivot &rarr; pivot).</td></tr>
+<tr><td>Generate relay child beacon</td><td>Open the child artifact generation dialog configured to connect through this beacon.</td></tr>
+<tr><td>Start SOCKS5 listener (polling)</td><td>Open a local SOCKS5 proxy tunneling traffic through the beacon. Dialog: bind host, bind port.</td></tr>
+<tr><td>Start Reverse Port Forward</td><td>Teamserver opens a TCP port (bind host / bind port); on incoming connections traffic passes through the beacon to the specified rhost:rport.</td></tr>
+</table>
+
+<h2 id="downloads">Downloads Tab</h2>
+<p>List of files downloaded from targets via the <code>download</code> command.
+Shows filename, size, source beacon, and time received.
+Double-click — save locally.</p>
+
+<h2 id="credentials">Credentials Tab</h2>
+<p>Shared credential store for all operators. Stored on the teamserver;
+changes are automatically broadcast to all connected operators.</p>
+<table>
+<tr><th>Column</th><th>Description</th></tr>
+<tr><td>User / Domain</td><td>Account name</td></tr>
+<tr><td>Kind</td><td><span style="color:#ef4444">password</span> / <span style="color:#f59e0b">hash</span> / <span style="color:#8b5cf6">ticket</span> / <span style="color:#3b82f6">identity</span></td></tr>
+<tr><td>Secret</td><td>Masked in the table; full text in tooltip</td></tr>
+<tr><td>Host / Source / By</td><td>Where it was obtained from</td></tr>
+</table>
+<p>Buttons: <b>Refresh</b> — request the list from the server; <b>Add</b> — add manually;
+<b>Delete</b> — remove the selected row.<br>
+<code>getuid</code> automatically adds a kind=identity entry each time it runs.</p>
+
+<h2 id="chat">Chat Tab</h2>
+<p>Team chat: all operators in one channel. When a new message arrives
+in an inactive tab, a <code>&bull;</code> marker appears in the tab header.</p>
+
+<h2 id="logs">Logs Tab</h2>
+<p>Stdout/stderr of the running teamserver + local client messages
+(connection, artifact generation, etc.). When new lines arrive in the background
+the tab header is marked with a <code>&bull;</code> indicator.</p>
+
+<h2 id="filebrowser">File Browser</h2>
+<p>Opens when double-clicking a session in the Sessions table
+(along with the console). Shows the remote filesystem of the selected beacon.</p>
+
+<h3>Navigation Panel</h3>
+<table>
+<tr><th>Element</th><th>Description</th></tr>
+<tr><td><b>&larr;</b> Back</td><td>Navigate back through visited directory history.</td></tr>
+<tr><td><b>&rarr;</b> Forward</td><td>Navigate forward through history.</td></tr>
+<tr><td><b>&uarr;</b> Up</td><td>Go to the parent directory.</td></tr>
+<tr><td><b>&#x27F3;</b> Refresh</td><td>Re-read the contents of the current directory.</td></tr>
+<tr><td>Path bar</td><td>Type a path manually and press <kbd>Enter</kbd>.</td></tr>
+</table>
+
+<h3>Action Panel</h3>
+<table>
+<tr><th>Button</th><th>Description</th></tr>
+<tr><td>Download</td><td>Download the selected file to the operator's machine (save path dialog). Unavailable for directories.</td></tr>
+<tr><td>Upload</td><td>Upload a local file to the current directory on the target.</td></tr>
+<tr><td>Delete</td><td>Delete the selected file or directory on the target. Asks for confirmation before deleting.</td></tr>
+</table>
+
+<h3>File Table</h3>
+<p>Columns: <b>Name</b>, <b>Size</b>, <b>Modified</b>, <b>Type</b> (FILE / DIR).<br>
+Double-click a directory row — open it.<br>
+When the active beacon changes, navigation history is reset and an automatic
+<code>ls</code> of the current working directory is performed.</p>
+
+
+<h2 id="processbrowser">Process Browser</h2>
+<p>The <b>Processes</b> tab — a tree view of processes on the remote machine
+with extended information. Core fields (memory, session, PPID)
+are populated without administrator privileges.</p>
+
+<h3>Control Panel</h3>
+<table>
+<tr><th>Element</th><th>Description</th></tr>
+<tr><td><b>Beacon</b> (dropdown)</td>
+    <td>Select the beacon from which processes are requested.
+    Displayed as <code>user@host (id)</code>.
+    The list updates automatically when Sessions changes.</td></tr>
+<tr><td><b>Refresh</b></td>
+    <td>Send the <code>ps</code> command to the selected beacon and build the tree from the response.</td></tr>
+<tr><td><b>Kill</b></td>
+    <td>Send <code>taskkill /F /PID &lt;pid&gt;</code> via <code>shell</code> for the selected process.
+    The button is active only when a row is selected.</td></tr>
+<tr><td><b>Filter by name&hellip;</b></td>
+    <td>Text filter. Searches by process name (Name column), user (User),
+    and PID. Case-insensitive. Parent nodes remain visible if
+    at least one child matches.</td></tr>
+</table>
+
+<h3>Tree Columns</h3>
+<table>
+<tr><th>Column</th><th>Availability</th><th>Description</th></tr>
+<tr><td><b>PID</b></td><td>Always</td><td>Process identifier. This column displays the tree structure with an orange dotted line and blue &plusmn; buttons.</td></tr>
+<tr><td><b>PPID</b></td><td>Always</td><td>Parent process PID. Used to build the hierarchy.</td></tr>
+<tr><td><b>Session</b></td><td>Always</td><td>Windows session number (0 — services, 1+ — interactive).</td></tr>
+<tr><td><b>Arch</b></td><td>Privileged</td><td><code>x64</code> or <code>x86</code>. If the beacon cannot open the process — <code>?</code>.</td></tr>
+<tr><td><b>Memory</b></td><td>Always</td><td>Working Set. Displayed in MB or KB.</td></tr>
+<tr><td><b>User</b></td><td>Privileged</td><td>Owner: <code>DOMAIN\user</code>. If no access — <code>-</code>.</td></tr>
+<tr><td><b>Name</b></td><td>Always</td><td>Executable filename.</td></tr>
+</table>
+
+<div class="note">
+Columns PID, PPID, Session, Memory, and Name are populated for <b>all</b> processes
+regardless of the beacon's privilege level. Arch and User may be empty
+for processes belonging to other users. When running as administrator
+all processes are covered.
+</div>
+
+<h3>Tree Construction</h3>
+<p>The tree is built in two passes:</p>
+<ol>
+<li>Items are created for all processes from the response.</li>
+<li>Each item is attached as a child to the item whose PID equals its PPID.
+    If the parent is not found — the process is placed at the root of the tree.</li>
+</ol>
+<p>After construction the tree is fully expanded. Sorting is available
+by clicking any column header.</p>
+
+<h2 id="console">Console</h2>
+<p>See <a href="console.html">Beacon Console</a>.</p>
+
+<h2 id="themes">Themes</h2>
+<p>Light and Dark are supported. Icons are drawn as SVG with
+<code>currentColor</code> and are redrawn to match the theme palette on switch.</p>
+
+</body></html>

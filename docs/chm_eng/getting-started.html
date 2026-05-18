@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<title>Quick Start</title>
+<link rel="stylesheet" href="style.css">
+</head><body>
+<nav class="crumbs"><a href="index.html">Home</a> &raquo; Quick Start</nav>
+
+<h1>Quick Start</h1>
+
+<h2 id="certs">1. mTLS Certificates</h2>
+<p>Generated automatically on the first project build, or manually via the
+<b>Tools &rarr; Generate Certificates</b> menu.
+Files appear in the <code>certs\</code> directory:
+<code>ca.crt</code>, <code>server.crt</code>/<code>server.key</code>,
+<code>operator.crt</code>/<code>operator.key</code>.</p>
+
+<h2 id="client">2. Starting the Client</h2>
+<p>Double-click <code>co2h-client.exe</code>. In the login dialog:</p>
+<table>
+<tr><th>Field</th><th>Default Value</th></tr>
+<tr><td>Host</td><td>127.0.0.1</td></tr>
+<tr><td>Port</td><td>5050</td></tr>
+<tr><td>Username</td><td>admin</td></tr>
+<tr><td>Password</td><td>changeme</td></tr>
+<tr><td>CA</td><td><code>certs\ca.crt</code></td></tr>
+<tr><td>Cert / Key</td><td><code>certs\operator.crt</code> / <code>certs\operator.key</code></td></tr>
+</table>
+
+<h2 id="server">3. Starting the Teamserver</h2>
+<p>On the client toolbar — click <b>Start Server</b>. Starts the built-in
+teamserver alongside the client, uses <code>configs/srv.toml</code>. Stdout/stderr
+of the process go to the <b>Logs</b> tab. <b>Stop Server</b> shuts it down.</p>
+
+<h2 id="listener">4. Creating a Listener</h2>
+<p>An HTTPS listener starts automatically from <code>srv.toml</code>.
+TCP, SMB and DNS are created via the client: toolbar &rarr; <b>New listener</b>
+(or the <b>Add</b> button in the <b>Listeners</b> tab),
+select type, enter parameters. Once created, the listener appears in the list with its key.</p>
+<p>For DNS: specify the <b>C2 domain</b> — the subdomain for which the teamserver
+is the authoritative NS server (NS record at the registrar).</p>
+
+<h2 id="gen">5. Generating a Beacon</h2>
+<p>Toolbar &rarr; <b>Generate artifact</b>. In the <b>Listener</b> dropdown, select the desired
+listener — the key and parameters will be filled in automatically. Specify the format (EXE/DLL),
+sleep/jitter and save path.</p>
+<p>The beacon embeds the address and key of the selected listener. On startup it connects
+to that listener; the teamserver identifies the beacon by the encrypted check-in.</p>
+
+<h2 id="run">6. Running the Beacon on the Target</h2>
+<p>Copy <code>payload.exe</code> to the test machine (Windows 10/11 x64) and run it.
+After a few seconds the beacon will appear in the <b>Sessions</b> tab.</p>
+
+<h2 id="interact">7. Interacting</h2>
+<p>Double-click a beacon row &rarr; the bottom <b>console</b> becomes active.
+Type <code>pwd</code> and press <kbd>Enter</kbd>.</p>
+
+</body></html>

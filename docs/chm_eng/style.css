@@ -1,0 +1,30 @@
+body {
+    font-family: "Segoe UI", "Tahoma", sans-serif;
+    font-size: 13px;
+    color: #1f2937;
+    background: #ffffff;
+    margin: 14px 22px;
+    line-height: 1.55;
+}
+h1 { color: #0f172a; border-bottom: 2px solid #3b82f6; padding-bottom: 4px; font-size: 22px; }
+h2 { color: #1e3a8a; border-bottom: 1px solid #cbd5e1; padding-bottom: 2px; font-size: 17px; margin-top: 22px; }
+h3 { color: #1e40af; font-size: 14px; margin-top: 16px; }
+code, pre, kbd {
+    font-family: "Consolas", "Lucida Console", monospace;
+    font-size: 12px;
+}
+code { background: #f1f5f9; color: #b91c1c; padding: 1px 4px; border-radius: 3px; }
+pre  { background: #0f172a; color: #e2e8f0; padding: 10px 12px; border-radius: 4px; overflow-x: auto; }
+kbd  { background: #e5e7eb; border: 1px solid #94a3b8; border-bottom-width: 2px;
+       border-radius: 3px; padding: 1px 6px; }
+table { border-collapse: collapse; margin: 8px 0; width: 100%; }
+th, td { border: 1px solid #cbd5e1; padding: 5px 9px; text-align: left; vertical-align: top; }
+th { background: #1e3a8a; color: #ffffff; font-weight: 600; }
+tr:nth-child(even) td { background: #f8fafc; }
+.note    { border-left: 4px solid #3b82f6; background: #eff6ff; padding: 8px 12px; margin: 10px 0; }
+.warning { border-left: 4px solid #ef4444; background: #fef2f2; padding: 8px 12px; margin: 10px 0; }
+.opsec   { border-left: 4px solid #f59e0b; background: #fffbeb; padding: 8px 12px; margin: 10px 0; }
+.opsec::before { content: "OPSEC: "; font-weight: 700; color: #b45309; }
+nav.crumbs { font-size: 11px; color: #64748b; margin-bottom: 8px; }
+nav.crumbs a { color: #3b82f6; text-decoration: none; }
+ul.toc li { margin: 3px 0; }

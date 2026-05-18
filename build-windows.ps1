@@ -446,6 +446,27 @@ if (Test-Path $chmSrc) {
     info "docs\chm\co2h.chm not found, skipping"
 }
 
+# ---- English CHM documentation ---------------------------------------------
+# Rebuild co2h-eng.chm from docs\chm_eng\ sources (English manual).
+$chmEngBuild = Join-Path $PSScriptRoot "docs\chm_eng\build-chm.ps1"
+if (Test-Path $chmEngBuild) {
+    info "Rebuilding co2h-eng.chm..."
+    & $chmEngBuild
+    if ($LASTEXITCODE -eq 0) {
+        ok "co2h-eng.chm rebuilt"
+    } else {
+        info "English CHM rebuild skipped or failed - using existing co2h-eng.chm if any"
+    }
+}
+
+$chmEngSrc = Join-Path $PSScriptRoot "docs\chm_eng\co2h-eng.chm"
+if (Test-Path $chmEngSrc) {
+    Copy-Item $chmEngSrc (Join-Path $binDir "co2h-eng.chm") -Force
+    ok "docs\chm_eng\co2h-eng.chm -> bin\co2h-eng.chm"
+} else {
+    info "docs\chm_eng\co2h-eng.chm not found, skipping"
+}
+
 # ---- scelot (PE/.NET -> shellcode generator) from kit\utils\scelot ---------
 $scelotDir = Join-Path $PSScriptRoot "kit\utils\scelot"
 $scelotCML = Join-Path $scelotDir "CMakeLists.txt"
@@ -669,7 +690,8 @@ Write-Host "  bin\bof\co2h\         (Co2H BOFs)"
 Write-Host "  bin\bof\              (third-party BOF collection)"
 Write-Host "  bin\kit\              (Artifact Kit + KitEditor + scelot)"
 Write-Host "  bin\tools\scelot.exe  (PE/.NET to shellcode generator)"
-Write-Host "  bin\co2h.chm          (offline documentation)"
+Write-Host "  bin\co2h.chm          (offline documentation, RU)"
+Write-Host "  bin\co2h-eng.chm      (offline documentation, EN)"
 Write-Host "  bin\sdk\              (plugin SDK: headers + example)"
 Write-Host "  bin\plugins\          (plugin DLLs go here)"
 Write-Host "  bin\scripts\          (Lua scripts for scripting engine)"

